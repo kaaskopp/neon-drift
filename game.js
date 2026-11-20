@@ -172,13 +172,6 @@ const items = {
   shield_immortal:{id:"shield_immortal",name:"Immortal Shield",type:"shield",rarity:"eternal",icon:"💠",charges:13,color:"#ffffff",description:"The rarest protection in the universe."}
 };
 
-// Celestial en Eternal worden Divine.
-Object.values(items).forEach(item => {
-  if (item.rarity === "celestial" || item.rarity === "eternal") {
-    item.rarity = "divine";
-  }
-});
-
 const rarityColors = {
   common:"#a0a0a0",
   uncommon:"#35c779",
@@ -186,7 +179,9 @@ const rarityColors = {
   epic:"#b15aff",
   legendary:"#ffb52e",
   mythic:"#c477ff",
-  divine:"#fff2c2"
+  divine:"#fff2c2",
+  celestial:"#55eaff",
+  eternal:"#ff5bd6"
 };
 
 const rarityOrder = {
@@ -196,7 +191,9 @@ const rarityOrder = {
   epic:3,
   legendary:4,
   mythic:5,
-  divine:6
+  divine:6,
+  celestial:7,
+  eternal:8
 };
 
 const categoryNames = {
@@ -207,8 +204,6 @@ const categoryNames = {
   shield:"Shields"
 };
 
-/* EXTRA CUSTOMIZATION ITEMS: 2 PER CATEGORY PER RARITY */
-
 const extraItemNames = {
   weapon: {
     common:["Mini Blaster","Spark Shooter"],
@@ -217,7 +212,9 @@ const extraItemNames = {
     epic:["Void Launcher","Nova Repeater"],
     legendary:["Solar Destroyer","Golden Reaper"],
     mythic:["Dark Matter Cannon","Phantom Ray"],
-    divine:["Celestial Beam","Infinity Cannon"]
+    divine:["Celestial Beam","Infinity Cannon"],
+    celestial:["Starbreaker Cannon","Cosmic Destroyer"],
+    eternal:["Eternity Blaster","Absolute Annihilator"]
   },
   module: {
     common:["Compact Core","Basic Reactor"],
@@ -226,7 +223,9 @@ const extraItemNames = {
     epic:["Fusion Core","Nebula Reactor"],
     legendary:["Titan Reactor","Solar Core"],
     mythic:["Void Reactor","Eclipse Core"],
-    divine:["Infinity Core","Genesis Core"]
+    divine:["Infinity Core","Genesis Core"],
+    celestial:["Astral Core","Cosmic Reactor"],
+    eternal:["Eternity Core","Absolute Core"]
   },
   engine: {
     common:["Micro Engine","Starter Thruster"],
@@ -235,7 +234,9 @@ const extraItemNames = {
     epic:["Hyper Drive","Photon Thruster"],
     legendary:["Solar Drive","Titan Engine"],
     mythic:["Void Drive","Eclipse Engine"],
-    divine:["Infinity Thruster","Genesis Drive"]
+    divine:["Infinity Thruster","Genesis Drive"],
+    celestial:["Astral Drive","Cosmic Thruster"],
+    eternal:["Eternity Drive","Absolute Engine"]
   },
   drone: {
     common:["Mini Scout","Repair Drone"],
@@ -244,7 +245,9 @@ const extraItemNames = {
     epic:["Nova Drone","Quantum Drone"],
     legendary:["Solar Drone","Titan Drone"],
     mythic:["Void Drone","Eclipse Drone"],
-    divine:["Seraph Drone","Infinity Drone"]
+    divine:["Seraph Drone","Infinity Drone"],
+    celestial:["Astral Drone","Cosmic Guardian"],
+    eternal:["Eternity Drone","Absolute Sentinel"]
   },
   shield: {
     common:["Mini Shield","Basic Barrier"],
@@ -253,7 +256,9 @@ const extraItemNames = {
     epic:["Nova Barrier","Quantum Shield"],
     legendary:["Solar Barrier","Titan Shield"],
     mythic:["Void Barrier","Eclipse Shield"],
-    divine:["Infinity Barrier","Genesis Shield"]
+    divine:["Infinity Barrier","Genesis Shield"],
+    celestial:["Astral Barrier","Cosmic Shield"],
+    eternal:["Eternity Barrier","Absolute Protection"]
   }
 };
 
@@ -272,18 +277,12 @@ const extraRarityStats = {
   epic:1.42,
   legendary:1.65,
   mythic:1.9,
-  divine:2.2
+  divine:2.2,
+  celestial:2.55,
+  eternal:3
 };
 
-const extraItemColors = {
-  common:"#a0a0a0",
-  uncommon:"#35c779",
-  rare:"#3988ff",
-  epic:"#b15aff",
-  legendary:"#ffb52e",
-  mythic:"#c477ff",
-  divine:"#fff2c2"
-};
+const extraItemColors = rarityColors;
 
 Object.entries(extraItemNames).forEach(([type,rarities]) => {
   Object.entries(rarities).forEach(([rarity,names]) => {
@@ -538,10 +537,10 @@ function showRunUpgrade() {
 /* START LEVEL */
 
 function startRun() {
+  if (gameState === "playing" || gameState === "choosing") return;
+
   score = 0;
   earned = 0;
-
-  // Start het opgeslagen volgende level.
   level = Math.max(1,save.level || 1);
   gameTime = 0;
 
@@ -556,7 +555,6 @@ function startRun() {
 
   const shield = getItem(save.equipped.shield);
 
-  // Altijd precies drie levens.
   lives = 3;
   shieldCharges = shield.charges || 0;
 
@@ -665,8 +663,6 @@ function endRun() {
 
   save.credits += totalReward;
   save.best = Math.max(save.best,score);
-
-  // Een verloren level wordt niet automatisch overgeslagen.
   save.level = level;
 
   saveGame();
@@ -679,8 +675,7 @@ function endRun() {
   $("overlay")?.classList.remove("active");
   showScreen("result");
 }
-
-/* CONTROLS */
+  /* CONTROLS */
 
 function getPointerPosition(e) {
   const r = canvas.getBoundingClientRect();
@@ -747,7 +742,6 @@ function gameLoop(t) {
 function update(dt) {
   gameTime += dt;
 
-  // Ieder level duurt exact 300 seconden.
   if (gameTime >= LEVEL_DURATION) {
     gameTime = LEVEL_DURATION;
     updateHUD();
@@ -1291,8 +1285,7 @@ function createCategoryFilters() {
     box.appendChild(b);
   });
 }
-
-function renderHangar() {
+  function renderHangar() {
   const slots = [
     ["weapon","Weapon"],
     ["module","Module"],
@@ -1361,12 +1354,9 @@ function renderInventory() {
 
     icon.className = "item-icon";
     icon.textContent = i.icon;
-
     name.textContent = i.name;
-
     rarity.className = `rarity-dot rarity-${i.rarity}`;
     rarity.textContent = "";
-
     desc.textContent = i.description;
     desc.style.fontSize = "12px";
 
@@ -1456,7 +1446,6 @@ function installCollectionStyles() {
 function renderCollection() {
   const grid = $("collectionGrid");
   const stats = $("collectionStats");
-
   if (!grid) return;
 
   installCollectionStyles();
@@ -1530,7 +1519,6 @@ function addToInbox(item) {
     receivedAt:Date.now()
   });
 
-  // Bewaar maximaal 100 recente items.
   save.inbox = save.inbox.slice(0,100);
 }
 
@@ -1548,6 +1536,7 @@ function renderInbox() {
   save.inbox.forEach(entry => {
     const id = typeof entry === "string" ? entry : entry.id;
     const item = items[id];
+
     if (!item) return;
 
     const card = document.createElement("div");
@@ -1675,6 +1664,14 @@ function installPackAnimation() {
       background:radial-gradient(circle,#66552b 0%,#28213a 40%,#03040d 100%);
     }
 
+    #packAnimation.tier-celestial {
+      background:radial-gradient(circle,#07546b 0%,#10203d 45%,#03040d 100%);
+    }
+
+    #packAnimation.tier-eternal {
+      background:radial-gradient(circle,#66134f 0%,#28102e 45%,#03040d 100%);
+    }
+
     .pack-ring {
       position:absolute;
       width:160px;
@@ -1699,6 +1696,14 @@ function installPackAnimation() {
       filter:drop-shadow(0 0 55px #fff2c2);
     }
 
+    #packAnimation.tier-celestial .animated-pack {
+      filter:drop-shadow(0 0 65px #55eaff);
+    }
+
+    #packAnimation.tier-eternal .animated-pack {
+      filter:drop-shadow(0 0 75px #ff5bd6);
+    }
+
     #packAnimation.tier-legendary .pack-ring {
       animation-duration:1.1s;
       border-width:4px;
@@ -1714,6 +1719,16 @@ function installPackAnimation() {
       border-width:5px;
     }
 
+    #packAnimation.tier-celestial .pack-ring {
+      animation-duration:.55s;
+      border-width:5px;
+    }
+
+    #packAnimation.tier-eternal .pack-ring {
+      animation-duration:.4s;
+      border-width:6px;
+    }
+
     #packAnimation.tier-legendary h2 {
       color:#ffd45c;
       text-shadow:0 0 22px #ffb52e;
@@ -1727,6 +1742,16 @@ function installPackAnimation() {
     #packAnimation.tier-divine h2 {
       color:#fff2c2;
       text-shadow:0 0 25px #fff2c2;
+    }
+
+    #packAnimation.tier-celestial h2 {
+      color:#55eaff;
+      text-shadow:0 0 25px #55eaff;
+    }
+
+    #packAnimation.tier-eternal h2 {
+      color:#ff5bd6;
+      text-shadow:0 0 28px #ff5bd6;
     }
 
     .pack-flash {
@@ -1797,6 +1822,7 @@ function waitForPackStage(duration,canSkip) {
 
     const finish = () => {
       if (finished) return;
+
       finished = true;
 
       if (packSkipResolver === finish) {
@@ -1821,17 +1847,18 @@ function showPackStage(rarity,titleText,description) {
   const pack = $("animatedPack");
 
   overlay.className = "active tier-"+rarity;
-
   overlay.style.setProperty("--pack-color",rarityColors[rarity] || "#ffffff");
 
   title.textContent = titleText;
   text.textContent = description;
+
   title.style.color = rarityColors[rarity] || "#60f4ff";
 
   pack.className = "animated-pack";
   pack.textContent = "🎁";
 
   const skip = $("packSkipButton");
+
   if (skip) {
     skip.style.display = rarityOrder[rarity] <= rarityOrder.epic
       ? "block"
@@ -1848,7 +1875,6 @@ async function openPack(elite=false,minimumRarity="common") {
 
   updateDailyButton();
   updatePackButtons();
-
   installPackAnimation();
 
   const overlay = $("packAnimation");
@@ -1877,60 +1903,72 @@ async function openPack(elite=false,minimumRarity="common") {
     skip.style.display = canSkip ? "block" : "none";
   }
 
-  if (rarity === "legendary") {
-    await waitForPackStage(900,false);
-
+  if (rarity === "eternal") {
+    await waitForPackStage(1800,false);
     pack.classList.add("pack-opening");
-    title.textContent = "GOLDEN ENERGY...";
-    text.textContent = "A golden light is building.";
-
-    await waitForPackStage(1200,false);
-
+    title.textContent = "ETERNAL ENERGY...";
+    text.textContent = "Reality itself seems to bend around the package.";
+    await waitForPackStage(2400,false);
     overlay.classList.add("pack-flash");
-    title.textContent = "GOLDEN REVEAL";
-    text.textContent = "A special item has appeared!";
+    title.textContent = "COSMIC AWAKENING";
+    text.textContent = "An extraordinary energy is breaking through.";
+    await waitForPackStage(2200,false);
+    title.textContent = "THE FINAL REVEAL";
+    text.textContent = "Something beyond imagination is inside.";
+    await waitForPackStage(1800,false);
 
-    await waitForPackStage(1100,false);
-  } else if (rarity === "mythic") {
-    await waitForPackStage(1100,false);
-
+  } else if (rarity === "celestial") {
+    await waitForPackStage(1500,false);
     pack.classList.add("pack-opening");
-    title.textContent = "VIOLET ENERGY...";
-    text.textContent = "The space around the pack is changing.";
-
-    await waitForPackStage(1500,false);
-
+    title.textContent = "COSMIC ENERGY...";
+    text.textContent = "A wave of stellar energy surrounds the package.";
+    await waitForPackStage(1900,false);
     overlay.classList.add("pack-flash");
-    title.textContent = "VIOLET AWAKENING";
-    text.textContent = "An extraordinary item is being revealed!";
+    title.textContent = "STELLAR AWAKENING";
+    text.textContent = "A powerful cosmic item is emerging.";
+    await waitForPackStage(1600,false);
 
-    await waitForPackStage(1500,false);
   } else if (rarity === "divine") {
     await waitForPackStage(1400,false);
-
     pack.classList.add("pack-opening");
     title.textContent = "WHITE-GOLD ENERGY...";
     text.textContent = "An incredible energy is gathering.";
-
     await waitForPackStage(1800,false);
-
     overlay.classList.add("pack-flash");
     title.textContent = "ULTIMATE AWAKENING";
     text.textContent = "A powerful item is being revealed...";
-
     await waitForPackStage(1700,false);
-
     title.textContent = "ULTIMATE REVEAL";
-    text.textContent = "The rarest equipment has arrived.";
-
+    text.textContent = "An extraordinary piece of equipment has arrived.";
     await waitForPackStage(1300,false);
+
+  } else if (rarity === "mythic") {
+    await waitForPackStage(1100,false);
+    pack.classList.add("pack-opening");
+    title.textContent = "VIOLET ENERGY...";
+    text.textContent = "The space around the pack is changing.";
+    await waitForPackStage(1500,false);
+    overlay.classList.add("pack-flash");
+    title.textContent = "VIOLET AWAKENING";
+    text.textContent = "An extraordinary item is being revealed!";
+    await waitForPackStage(1500,false);
+
+  } else if (rarity === "legendary") {
+    await waitForPackStage(900,false);
+    pack.classList.add("pack-opening");
+    title.textContent = "GOLDEN ENERGY...";
+    text.textContent = "A golden light is building.";
+    await waitForPackStage(1200,false);
+    overlay.classList.add("pack-flash");
+    title.textContent = "GOLDEN REVEAL";
+    text.textContent = "A special item has appeared!";
+    await waitForPackStage(1100,false);
+
   } else {
     await waitForPackStage(650,true);
-
     pack.classList.add("pack-opening");
     title.textContent = "UNLOCKING...";
     text.textContent = "The package is opening!";
-
     await waitForPackStage(1100,true);
   }
 
@@ -1959,10 +1997,13 @@ async function openPack(elite=false,minimumRarity="common") {
 
   if (skip) skip.style.display = "none";
 
-  const revealTime = rarity === "divine" ? 2600
-    : rarity === "mythic" ? 2200
-    : rarity === "legendary" ? 1900
-    : 1200;
+  const revealTime =
+    rarity === "eternal" ? 4200 :
+    rarity === "celestial" ? 3400 :
+    rarity === "divine" ? 2800 :
+    rarity === "mythic" ? 2300 :
+    rarity === "legendary" ? 1900 :
+    1200;
 
   await waitForPackStage(revealTime,false);
 
@@ -2002,16 +2043,20 @@ function randomItem(elite=false,minimumRarity="common") {
     else if (roll<75) rarity="rare";
     else if (roll<88) rarity="epic";
     else if (roll<95) rarity="legendary";
-    else if (roll<99) rarity="mythic";
-    else rarity="divine";
+    else if (roll<98) rarity="mythic";
+    else if (roll<99.5) rarity="divine";
+    else if (roll<99.95) rarity="celestial";
+    else rarity="eternal";
   } else {
     if (roll<55) rarity="common";
     else if (roll<79) rarity="uncommon";
     else if (roll<91) rarity="rare";
     else if (roll<97) rarity="epic";
     else if (roll<99) rarity="legendary";
-    else if (roll<99.8) rarity="mythic";
-    else rarity="divine";
+    else if (roll<99.7) rarity="mythic";
+    else if (roll<99.9) rarity="divine";
+    else if (roll<99.99) rarity="celestial";
+    else rarity="eternal";
   }
 
   if (rarityOrder[rarity] < rarityOrder[minimumRarity]) {
@@ -2031,7 +2076,9 @@ function duplicateCredits(r) {
     epic:300,
     legendary:600,
     mythic:1200,
-    divine:2500
+    divine:2500,
+    celestial:5000,
+    eternal:10000
   }[r] || 50;
 }
 
@@ -2139,12 +2186,12 @@ $("packDoneBtn")?.addEventListener("click",() => {
 $("playBtn")?.addEventListener("click",startRun);
 $("startBtn")?.addEventListener("click",startRun);
 $("againBtn")?.addEventListener("click",startRun);
+
 $("pauseBtn")?.addEventListener("click",pauseGame);
 $("resumeBtn")?.addEventListener("click",resumeGame);
 
 $("quitBtn")?.addEventListener("click",() => {
   gameState = "menu";
-
   cancelAnimationFrame(animationId);
 
   $("overlay")?.classList.remove("active");
@@ -2155,6 +2202,71 @@ $("quitBtn")?.addEventListener("click",() => {
 
   showScreen("home");
 });
+
+/* RARITY SYSTEM */
+
+function installRarityLegend() {
+  if ($("rarityLegend")) return;
+
+  const heading = [...document.querySelectorAll("h1,h2,h3,h4")]
+    .find(el => el.textContent.trim().toLowerCase() === "rarity system");
+
+  if (!heading) return;
+
+  const legend = document.createElement("div");
+  legend.id = "rarityLegend";
+
+  legend.style.cssText = `
+    display:grid;
+    grid-template-columns:repeat(3,minmax(0,1fr));
+    gap:12px;
+    margin:14px 0;
+    padding:15px;
+    background:#0d1630;
+    border:1px solid #30466e;
+    border-radius:14px;
+  `;
+
+  const rarities = [
+    ["common","Common"],
+    ["uncommon","Uncommon"],
+    ["rare","Rare"],
+    ["epic","Epic"],
+    ["legendary","Legendary"],
+    ["mythic","Mythic"],
+    ["divine","Divine"],
+    ["celestial","Celestial"],
+    ["eternal","Eternal"]
+  ];
+
+  rarities.forEach(([rarity,name]) => {
+    const item = document.createElement("div");
+    item.style.cssText = "text-align:center;min-width:0;";
+
+    const color = document.createElement("div");
+    color.style.cssText = `
+      height:8px;
+      width:100%;
+      border-radius:10px;
+      background:${rarityColors[rarity]};
+      box-shadow:0 0 12px ${rarityColors[rarity]};
+      margin-bottom:7px;
+    `;
+
+    const label = document.createElement("strong");
+    label.textContent = name;
+    label.style.cssText = `
+      font-size:11px;
+      color:${rarityColors[rarity]};
+      text-shadow:0 0 8px ${rarityColors[rarity]};
+    `;
+
+    item.append(color,label);
+    legend.appendChild(item);
+  });
+
+  heading.insertAdjacentElement("afterend",legend);
+}
 
 /* UPDATE ALL UI */
 
@@ -2180,8 +2292,10 @@ function updateAllUI() {
   renderUpgrades();
   renderCollection();
   renderInbox();
+
   updateDailyButton();
   updatePackButtons();
+  installRarityLegend();
   updateHUD();
 }
 
