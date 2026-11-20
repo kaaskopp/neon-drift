@@ -190,8 +190,8 @@ const rarityColors = {
   rare:"#3988ff",
   epic:"#b15aff",
   legendary:"#ffb52e",
-  mythic:"#ff477e",
-  divine:"#ffe27a"
+  mythic:"#c477ff",
+  divine:"#fff2c2"
 };
 
 const rarityOrder = {
@@ -1291,6 +1291,8 @@ function renderCollection() {
 /* PACK ANIMATION */
 
 let packOpening = false;
+let packSkipResolver = null;
+let packSkipRequested = false;
 
 function installPackAnimation() {
   if ($("packAnimationStyles")) return;
@@ -1310,7 +1312,10 @@ function installPackAnimation() {
       flex-direction:column;
       color:white;
       font-family:Arial;
-      text-align:center
+      text-align:center;
+      overflow:hidden;
+      padding:20px;
+      box-sizing:border-box;
     }
 
     #packAnimation.active { display:flex }
@@ -1318,7 +1323,9 @@ function installPackAnimation() {
     .animated-pack {
       font-size:100px;
       filter:drop-shadow(0 0 25px #55edff);
-      animation:packFloat .7s ease-in-out infinite alternate
+      animation:packFloat .7s ease-in-out infinite alternate;
+      position:relative;
+      z-index:2;
     }
 
     .pack-opening { animation:packShake .1s infinite alternate }
@@ -1328,10 +1335,102 @@ function installPackAnimation() {
       color:#60f4ff;
       margin-top:25px;
       font-size:25px;
-      text-shadow:0 0 15px #55edff
+      text-shadow:0 0 15px #55edff;
+      position:relative;
+      z-index:2;
     }
 
-    #packAnimation p { color:#cbd8ff }
+    #packAnimation p {
+      color:#cbd8ff;
+      position:relative;
+      z-index:2;
+    }
+
+    #packSkipButton {
+      margin-top:28px;
+      padding:13px 24px;
+      border:1px solid #5ffaff;
+      border-radius:30px;
+      background:#142b50;
+      color:#fff;
+      font-weight:800;
+      letter-spacing:1px;
+      cursor:pointer;
+      box-shadow:0 0 15px #55edff66;
+      position:relative;
+      z-index:5;
+    }
+
+    #packSkipButton:active { transform:scale(.96) }
+
+    #packAnimation.tier-legendary {
+      background:radial-gradient(circle,#49300b 0%,#171020 48%,#03040d 100%);
+    }
+
+    #packAnimation.tier-mythic {
+      background:radial-gradient(circle,#48145f 0%,#1a0a35 48%,#03040d 100%);
+    }
+
+    #packAnimation.tier-divine {
+      background:radial-gradient(circle,#66552b 0%,#28213a 40%,#03040d 100%);
+    }
+
+    #packAnimation.tier-legendary .animated-pack {
+      filter:drop-shadow(0 0 35px #ffb52e);
+    }
+
+    #packAnimation.tier-mythic .animated-pack {
+      filter:drop-shadow(0 0 40px #c477ff);
+    }
+
+    #packAnimation.tier-divine .animated-pack {
+      filter:drop-shadow(0 0 50px #fff2c2);
+    }
+
+    #packAnimation.tier-legendary h2 {
+      color:#ffd45c;
+      text-shadow:0 0 22px #ffb52e;
+    }
+
+    #packAnimation.tier-mythic h2 {
+      color:#e0a5ff;
+      text-shadow:0 0 22px #c477ff;
+    }
+
+    #packAnimation.tier-divine h2 {
+      color:#fff2c2;
+      text-shadow:0 0 25px #fff2c2;
+    }
+
+    .pack-ring {
+      position:absolute;
+      width:160px;
+      height:160px;
+      border:3px solid currentColor;
+      border-radius:50%;
+      opacity:0;
+      pointer-events:none;
+      z-index:1;
+    }
+
+    .tier-legendary .pack-ring {
+      color:#ffbd3f;
+      animation:packRing 1.5s ease-out infinite;
+    }
+
+    .tier-mythic .pack-ring {
+      color:#c477ff;
+      animation:packRing 1.3s ease-out infinite;
+    }
+
+    .tier-divine .pack-ring {
+      color:#fff2c2;
+      animation:packRing 1.1s ease-out infinite;
+    }
+
+    .pack-flash {
+      animation:packFlash .55s ease-out;
+    }
 
     @keyframes packFloat {
       from { transform:translateY(-8px) rotate(-5deg) }
@@ -1348,6 +1447,18 @@ function installPackAnimation() {
       60% { transform:scale(1.5);opacity:1 }
       100% { transform:scale(1);opacity:1 }
     }
+
+    @keyframes packRing {
+      0% { transform:scale(.4);opacity:0 }
+      30% { opacity:.8 }
+      100% { transform:scale(2.8);opacity:0 }
+    }
+
+    @keyframes packFlash {
+      0% { filter:brightness(1) }
+      35% { filter:brightness(2.5) }
+      100% { filter:brightness(1) }
+    }
   `;
 
   document.head.appendChild(s);
@@ -1356,15 +1467,229 @@ function installPackAnimation() {
   o.id = "packAnimation";
 
   o.innerHTML = `
+    <div class="pack-ring"></div>
+    <div class="pack-ring"></div>
     <div id="animatedPack" class="animated-pack">🎁</div>
     <h2 id="packAnimationTitle">OPENING PACK...</h2>
     <p id="packAnimationText">Something special is inside.</p>
+    <button id="packSkipButton" type="button">SKIP ANIMATION</button>
   `;
 
   document.body.appendChild(o);
+
+  $("packSkipButton").addEventListener("click", () => {
+    if (!packOpening || !packSkipResolver) return;
+
+    packSkipRequested = true;
+    packSkipResolver();
+    packSkipResolver = null;
+  });
 }
 
-const sleep = ms => new Promise(resolve => setTimeout(resolve,ms));
+function waitForPackStage(duration,canSkip) {
+  if (canSkip && packSkipRequested) {
+    return Promise.resolve();
+  }
+
+  return new Promise(resolve => {
+    let finished = false;
+
+    const finish = () => {
+      if (finished) return;
+      finished = true;
+
+      if (packSkipResolver === finish) {
+        packSkipResolver = null;
+      }
+
+      resolve();
+    };
+
+    if (canSkip) {
+      packSkipResolver = finish;
+    }
+
+    setTimeout(finish,duration);
+  });
+}
+
+function showPackStage(rarity,titleText,description) {
+  const overlay = $("packAnimation");
+  const title = $("packAnimationTitle");
+  const text = $("packAnimationText");
+  const pack = $("animatedPack");
+
+  overlay.className = "active tier-"+rarity;
+
+  title.textContent = titleText;
+  text.textContent = description;
+
+  title.style.color = rarityColors[rarity] || "#60f4ff";
+
+  pack.className = "animated-pack";
+  pack.textContent = "🎁";
+
+  const skip = $("packSkipButton");
+  if (skip) {
+    skip.style.display = rarityOrder[rarity] <= rarityOrder.epic
+      ? "block"
+      : "none";
+  }
+}
+
+async function openPack(elite=false,minimumRarity="common") {
+  if (packOpening) return;
+
+  packOpening = true;
+  packSkipRequested = false;
+  packSkipResolver = null;
+
+  updateDailyButton();
+  updatePackButtons();
+
+  installPackAnimation();
+
+  const overlay = $("packAnimation");
+  const pack = $("animatedPack");
+  const title = $("packAnimationTitle");
+  const text = $("packAnimationText");
+  const skip = $("packSkipButton");
+
+  const item = randomItem(elite,minimumRarity);
+  const duplicate = save.inventory.includes(item.id);
+  const bonus = duplicateCredits(item.rarity);
+  const rarity = item.rarity;
+
+  const canSkip = rarityOrder[rarity] <= rarityOrder.epic;
+
+  showPackStage(
+    rarity,
+    "OPENING "+rarityNames[rarity].toUpperCase()+" PACK...",
+    "Something special is waiting inside."
+  );
+
+  overlay.classList.add("active");
+
+  pack.textContent = "🎁";
+
+  if (skip) {
+    skip.style.display = canSkip ? "block" : "none";
+  }
+
+  if (rarity === "legendary") {
+    await waitForPackStage(900,false);
+
+    pack.classList.add("pack-opening");
+    title.textContent = "LEGENDARY ENERGY...";
+    text.textContent = "A golden light is building.";
+
+    await waitForPackStage(1200,false);
+
+    overlay.classList.add("pack-flash");
+    title.textContent = "GOLDEN REVEAL";
+    text.textContent = "A legendary item has appeared!";
+
+    await waitForPackStage(1100,false);
+  } else if (rarity === "mythic") {
+    await waitForPackStage(1100,false);
+
+    pack.classList.add("pack-opening");
+    title.textContent = "MYTHIC ENERGY...";
+    text.textContent = "The space around the pack is changing.";
+
+    await waitForPackStage(1500,false);
+
+    overlay.classList.add("pack-flash");
+    title.textContent = "MYTHIC AWAKENING";
+    text.textContent = "An extraordinary item is being revealed!";
+
+    await waitForPackStage(1500,false);
+  } else if (rarity === "divine") {
+    await waitForPackStage(1400,false);
+
+    pack.classList.add("pack-opening");
+    title.textContent = "DIVINE POWER...";
+    text.textContent = "An incredible energy is gathering.";
+
+    await waitForPackStage(1800,false);
+
+    overlay.classList.add("pack-flash");
+    title.textContent = "DIVINE AWAKENING";
+    text.textContent = "The rarest level of equipment...";
+
+    await waitForPackStage(1700,false);
+
+    title.textContent = "ULTIMATE REVEAL";
+    text.textContent = "A Divine item has arrived.";
+
+    await waitForPackStage(1300,false);
+  } else {
+    await waitForPackStage(650,true);
+
+    pack.classList.add("pack-opening");
+    title.textContent = "UNLOCKING...";
+    text.textContent = "The package is opening!";
+
+    await waitForPackStage(1100,true);
+  }
+
+  packSkipResolver = null;
+
+  if (!save.inventory.includes(item.id)) {
+    save.inventory.push(item.id);
+  } else {
+    save.credits += bonus;
+  }
+
+  saveGame();
+
+  overlay.classList.remove("pack-flash");
+
+  pack.className = "pack-burst animated-pack";
+  pack.textContent = item.icon;
+
+  title.textContent = item.name;
+  title.style.color = rarityColors[rarity];
+
+  text.textContent = duplicate
+    ? `${rarityNames[rarity]} · DUPLICATE · +${bonus} CREDITS`
+    : `${rarityNames[rarity]} · ${categoryNames[item.type]}`;
+
+  if (skip) skip.style.display = "none";
+
+  const revealTime = rarity === "divine" ? 2600
+    : rarity === "mythic" ? 2200
+    : rarity === "legendary" ? 1900
+    : 1200;
+
+  await waitForPackStage(revealTime,false);
+
+  overlay.className = "";
+
+  if ($("packItemIcon")) $("packItemIcon").textContent = item.icon;
+  if ($("packItemName")) $("packItemName").textContent = item.name;
+
+  if ($("packRarity")) {
+    $("packRarity").textContent = duplicate
+      ? `${rarityNames[rarity]} · DUPLICATE BONUS`
+      : rarityNames[rarity];
+
+    $("packRarity").className = `rarity-${rarity}`;
+  }
+
+  if ($("packItemDesc")) {
+    $("packItemDesc").textContent = duplicate
+      ? `You already owned this item. You received ${bonus} bonus credits.`
+      : `${categoryNames[item.type]} · ${item.description}`;
+  }
+
+  $("packResult")?.classList.remove("hidden");
+
+  packOpening = false;
+  packSkipRequested = false;
+
+  updateAllUI();
+}
 
 /* PACK DROP RATES */
 
@@ -1411,86 +1736,6 @@ function duplicateCredits(r) {
   }[r] || 50;
 }
 
-async function openPack(elite=false,minimumRarity="common") {
-  if (packOpening) return;
-
-  packOpening = true;
-  updateDailyButton();
-  updatePackButtons();
-
-  installPackAnimation();
-
-  const overlay = $("packAnimation");
-  const pack = $("animatedPack");
-  const title = $("packAnimationTitle");
-  const text = $("packAnimationText");
-
-  overlay.classList.add("active");
-
-  pack.textContent = "🎁";
-  pack.className = "animated-pack";
-
-  title.textContent = "OPENING PACK...";
-  title.style.color = "#60f4ff";
-  text.textContent = "Something special is inside.";
-
-  await sleep(650);
-
-  pack.classList.add("pack-opening");
-  title.textContent = "UNLOCKING...";
-  text.textContent = "The package is opening!";
-
-  await sleep(1100);
-
-  const item = randomItem(elite,minimumRarity);
-  const duplicate = save.inventory.includes(item.id);
-  const bonus = duplicateCredits(item.rarity);
-
-  if (!duplicate) {
-    save.inventory.push(item.id);
-  } else {
-    save.credits += bonus;
-  }
-
-  saveGame();
-
-  pack.className = "pack-burst animated-pack";
-  pack.textContent = item.icon;
-
-  title.textContent = item.name;
-  title.style.color = rarityColors[item.rarity];
-
-  text.textContent = duplicate
-    ? `${rarityNames[item.rarity]} · DUPLICATE · +${bonus} CREDITS`
-    : `${rarityNames[item.rarity]} · ${categoryNames[item.type]}`;
-
-  await sleep(1900);
-
-  overlay.classList.remove("active");
-
-  if ($("packItemIcon")) $("packItemIcon").textContent = item.icon;
-  if ($("packItemName")) $("packItemName").textContent = item.name;
-
-  if ($("packRarity")) {
-    $("packRarity").textContent = duplicate
-      ? `${rarityNames[item.rarity]} · DUPLICATE BONUS`
-      : rarityNames[item.rarity];
-
-    $("packRarity").className = `rarity-${item.rarity}`;
-  }
-
-  if ($("packItemDesc")) {
-    $("packItemDesc").textContent = duplicate
-      ? `You already owned this item. You received ${bonus} bonus credits.`
-      : `${categoryNames[item.type]} · ${item.description}`;
-  }
-
-  $("packResult")?.classList.remove("hidden");
-
-  packOpening = false;
-  updateAllUI();
-}
-
 /* PACK BUTTONS */
 
 function buyPack(price,elite,minimumRarity="common") {
@@ -1514,16 +1759,29 @@ function buyPack(price,elite,minimumRarity="common") {
 }
 
 function updatePackButtons() {
-  [
-    ["buyPackBtn",500],
-    ["buyUncommonPackBtn",1500],
-    ["buyRarePackBtn",3500]
-  ].forEach(([id,price]) => {
+  const packButtons = [
+    ["buyPackBtn",500,"ELITE PACK · 500 CR"],
+    ["buyUncommonPackBtn",1500,"ADVANCED PACK · 1,500 CR"],
+    ["buyRarePackBtn",3500,"PREMIUM PACK · 3,500 CR"]
+  ];
+
+  packButtons.forEach(([id,price,label]) => {
     const button = $(id);
     if (!button) return;
 
-    button.disabled = packOpening || save.credits<price;
+    button.textContent = label;
+    button.disabled = packOpening || save.credits < price;
   });
+}
+
+function reconnectPackButton(id,callback) {
+  const oldButton = $(id);
+  if (!oldButton || !oldButton.parentNode) return;
+
+  const newButton = oldButton.cloneNode(true);
+  oldButton.parentNode.replaceChild(newButton,oldButton);
+
+  newButton.addEventListener("click",callback);
 }
 
 function todayString() {
@@ -1560,15 +1818,15 @@ $("dailyBtn")?.addEventListener("click",() => {
   updateDailyButton();
 });
 
-$("buyPackBtn")?.addEventListener("click",() => {
+reconnectPackButton("buyPackBtn",() => {
   buyPack(500,true,"common");
 });
 
-$("buyUncommonPackBtn")?.addEventListener("click",() => {
+reconnectPackButton("buyUncommonPackBtn",() => {
   buyPack(1500,false,"uncommon");
 });
 
-$("buyRarePackBtn")?.addEventListener("click",() => {
+reconnectPackButton("buyRarePackBtn",() => {
   buyPack(3500,true,"rare");
 });
 
