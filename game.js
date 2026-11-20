@@ -29,7 +29,7 @@ const defaults = {
   credits: 0,
   best: 0,
   runs: 0,
-  upgrades: { hull: 0, engine: 0, weapon: 0, extra: 0 },
+  upgrades: { hull: 0, engine: 0, weapon: 0, fortune: 0 },
   inventory: [...starterItems],
   equipped: {
     weapon: "weapon_basic",
@@ -103,9 +103,9 @@ const items = {
   weapon_infinity:{id:"weapon_infinity",name:"Infinity Edge",type:"weapon",rarity:"eternal",icon:"♾️",damage:11,fireRate:.25,double:true,color:"#ffffff",description:"An almost impossible weapon to find."},
 
   module_basic:{id:"module_basic",name:"Standard Core",type:"module",rarity:"common",icon:"🔋",health:0,color:"#55edff",description:"Your standard ship core."},
-  module_shield:{id:"module_shield",name:"Shield Core",type:"module",rarity:"uncommon",icon:"🛡️",health:1,color:"#55aaff",description:"Adds one starting life."},
+  module_shield:{id:"module_shield",name:"Shield Core",type:"module",rarity:"uncommon",icon:"🛡️",health:1,color:"#55aaff",description:"A reinforced defensive core."},
   module_speed:{id:"module_speed",name:"Velocity Core",type:"module",rarity:"rare",icon:"⚡",speed:1.25,color:"#65ffbd",description:"Improves ship speed."},
-  module_reactor:{id:"module_reactor",name:"Reactor Core",type:"module",rarity:"epic",icon:"☢️",health:2,color:"#ff55c8",description:"A powerful reactor with extra health."},
+  module_reactor:{id:"module_reactor",name:"Reactor Core",type:"module",rarity:"epic",icon:"☢️",health:2,color:"#ff55c8",description:"A powerful reactor."},
   module_phantom:{id:"module_phantom",name:"Phantom Core",type:"module",rarity:"legendary",icon:"👾",health:2,speed:1.4,color:"#b18aff",description:"An advanced phantom reactor."},
   module_bastion:{id:"module_bastion",name:"Bastion Core",type:"module",rarity:"rare",icon:"🏰",health:1,color:"#55aaff",description:"A reinforced defensive core."},
   module_nebula:{id:"module_nebula",name:"Nebula Core",type:"module",rarity:"epic",icon:"🌫️",health:1,speed:1.2,color:"#c17aff",description:"Balances speed and protection."},
@@ -142,7 +142,7 @@ const items = {
   drone_divine:{id:"drone_divine",name:"Divine Drone",type:"drone",rarity:"divine",icon:"🪽",droneDamage:7,droneRate:.72,color:"#fff18a",description:"A nearly unmatched combat drone."},
   drone_eternal:{id:"drone_eternal",name:"Eternal Drone",type:"drone",rarity:"eternal",icon:"👑",droneDamage:9,droneRate:.65,color:"#ffffff",description:"The ultimate drone."},
   drone_spark:{id:"drone_spark",name:"Spark Drone",type:"drone",rarity:"rare",icon:"⚡",droneDamage:2,droneRate:1,color:"#55cfff",description:"A quick electric assistant."},
-  drone_bomber:{id:"drone_bomber",name:"Bomber Drone",type:"drone",rarity:"epic",icon:"💣",droneDamage:4,droneRate:1.05,color:"#c17aff",description:"Heavy explosive energy shots."},
+  drone_bomber:{id:"drone_bomber",name:"Bomber Drone",type:"drone",rarity:"epic",icon:"💣",droneDamage:4,droneRate:1.05,color:"#c17aff",description:"Heavy energy shots."},
   drone_wraith:{id:"drone_wraith",name:"Wraith Drone",type:"drone",rarity:"legendary",icon:"🌫️",droneDamage:5,droneRate:.82,color:"#ffb34d",description:"A stealthy legendary companion."},
   drone_leviathan:{id:"drone_leviathan",name:"Leviathan Drone",type:"drone",rarity:"mythic",icon:"🐲",droneDamage:7,droneRate:.75,color:"#ff62bd",description:"A mythic heavy-assault drone."},
   drone_archangel:{id:"drone_archangel",name:"Archangel Drone",type:"drone",rarity:"divine",icon:"👼",droneDamage:8,droneRate:.68,color:"#fff18a",description:"A divine guardian companion."},
@@ -212,6 +212,129 @@ const categoryNames = {
   shield:"Shields"
 };
 
+/* EXTRA CUSTOMIZATION ITEMS: 2 PER CATEGORY PER RARITY */
+
+const extraItemNames = {
+  weapon: {
+    common:["Mini Blaster","Spark Shooter"],
+    uncommon:["Twin Spark","Pulse Repeater"],
+    rare:["Thunder Cannon","Frost Blaster"],
+    epic:["Void Launcher","Nova Repeater"],
+    legendary:["Solar Destroyer","Golden Reaper"],
+    mythic:["Dark Matter Cannon","Phantom Ray"],
+    divine:["Celestial Beam","Infinity Cannon"]
+  },
+  module: {
+    common:["Compact Core","Basic Reactor"],
+    uncommon:["Power Core","Guard Core"],
+    rare:["Storm Core","Quantum Core"],
+    epic:["Fusion Core","Nebula Reactor"],
+    legendary:["Titan Reactor","Solar Core"],
+    mythic:["Void Reactor","Eclipse Core"],
+    divine:["Infinity Core","Genesis Core"]
+  },
+  engine: {
+    common:["Micro Engine","Starter Thruster"],
+    uncommon:["Turbo Engine","Wind Drive"],
+    rare:["Thunder Drive","Quantum Engine"],
+    epic:["Hyper Drive","Photon Thruster"],
+    legendary:["Solar Drive","Titan Engine"],
+    mythic:["Void Drive","Eclipse Engine"],
+    divine:["Infinity Thruster","Genesis Drive"]
+  },
+  drone: {
+    common:["Mini Scout","Repair Drone"],
+    uncommon:["Pulse Drone","Defender Drone"],
+    rare:["Storm Drone","Blitz Drone"],
+    epic:["Nova Drone","Quantum Drone"],
+    legendary:["Solar Drone","Titan Drone"],
+    mythic:["Void Drone","Eclipse Drone"],
+    divine:["Seraph Drone","Infinity Drone"]
+  },
+  shield: {
+    common:["Mini Shield","Basic Barrier"],
+    uncommon:["Pulse Barrier","Guard Shield"],
+    rare:["Storm Barrier","Prism Guard"],
+    epic:["Nova Barrier","Quantum Shield"],
+    legendary:["Solar Barrier","Titan Shield"],
+    mythic:["Void Barrier","Eclipse Shield"],
+    divine:["Infinity Barrier","Genesis Shield"]
+  }
+};
+
+const extraItemIcons = {
+  weapon:["🔫","⚡"],
+  module:["🔋","💠"],
+  engine:["🚀","🌪️"],
+  drone:["🛸","🤖"],
+  shield:["🛡️","🔮"]
+};
+
+const extraRarityStats = {
+  common:1,
+  uncommon:1.12,
+  rare:1.25,
+  epic:1.42,
+  legendary:1.65,
+  mythic:1.9,
+  divine:2.2
+};
+
+// Gebruik een aparte kleurentabel zodat er geen initialisatiefout ontstaat.
+const extraItemColors = {
+  common:"#a0a0a0",
+  uncommon:"#35c779",
+  rare:"#3988ff",
+  epic:"#b15aff",
+  legendary:"#ffb52e",
+  mythic:"#c477ff",
+  divine:"#fff2c2"
+};
+
+Object.entries(extraItemNames).forEach(([type,rarities]) => {
+  Object.entries(rarities).forEach(([rarity,names]) => {
+    names.forEach((name,index) => {
+      const id = `extra_${type}_${rarity}_${index+1}`;
+      const power = extraRarityStats[rarity];
+
+      const item = {
+        id,
+        name,
+        type,
+        rarity,
+        icon:extraItemIcons[type][index],
+        color:extraItemColors[rarity],
+        description:`A ${rarity} ${type} customization.`
+      };
+
+      if (type === "weapon") {
+        item.damage = Math.max(1,Math.round(power*2));
+        item.fireRate = Math.max(.2,.42-(power*.055));
+        item.double = index === 1 && power >= 1.25;
+      }
+
+      if (type === "module") {
+        item.speed = 1+(power-.9)*.25;
+      }
+
+      if (type === "engine") {
+        item.speed = 1+(power-.9)*.55;
+      }
+
+      if (type === "drone") {
+        item.droneDamage = Math.max(1,Math.round(power*2));
+        item.droneRate = Math.max(.5,1.5-(power*.35));
+      }
+
+      if (type === "shield") {
+        item.charges = Math.max(0,Math.round(power*3)-1);
+      }
+
+      items[id] = item;
+    });
+  });
+});
+
 const getItem = id => items[id] || items.weapon_basic;
 
 function installRarityStyles() {
@@ -262,9 +385,9 @@ let runUpgrades = {
   damage:0,
   fireRate:0,
   speed:0,
-  maxLives:0,
   shield:0,
-  score:0
+  score:0,
+  magnet:0
 };
 
 function showScreen(id) {
@@ -352,7 +475,7 @@ const temporaryUpgradeOptions = [
   {name:"Heavy Ammo",desc:"+1 damage per shot",apply:()=>runUpgrades.damage++},
   {name:"Rapid Fire",desc:"Shoot 15% faster",apply:()=>runUpgrades.fireRate++},
   {name:"Overdrive Engine",desc:"Move 15% faster",apply:()=>runUpgrades.speed++},
-  {name:"Emergency Repair",desc:"+1 extra life immediately",apply:()=>{runUpgrades.maxLives++;lives++;}},
+  {name:"Crystal Magnet",desc:"Collect crystals from further away",apply:()=>runUpgrades.magnet++},
   {name:"Energy Shield",desc:"More protection after taking a hit",apply:()=>runUpgrades.shield++},
   {name:"Score Booster",desc:"Earn 20% more points",apply:()=>runUpgrades.score++}
 ];
@@ -407,15 +530,15 @@ function startRun() {
     damage:0,
     fireRate:0,
     speed:0,
-    maxLives:0,
     shield:0,
-    score:0
+    score:0,
+    magnet:0
   };
 
-  const module = getItem(save.equipped.module);
   const shield = getItem(save.equipped.shield);
 
-  lives = 3 + Math.floor(save.upgrades.hull/5) + save.upgrades.extra + (module.health || 0);
+  // Je hebt altijd precies drie levens.
+  lives = 3;
   shieldCharges = shield.charges || 0;
 
   enemies = [];
@@ -482,13 +605,16 @@ function endRun() {
   }
 
   save.runs++;
-  save.credits += earned;
+
+  const creditMultiplier = 1+(save.upgrades.fortune||0)*.05;
+  save.credits += Math.floor(earned*creditMultiplier);
+
   save.best = Math.max(save.best,score);
 
   saveGame();
 
   if ($("finalScore")) $("finalScore").textContent = score.toLocaleString();
-  if ($("earned")) $("earned").textContent = earned.toLocaleString();
+  if ($("earned")) $("earned").textContent = Math.floor(earned*creditMultiplier).toLocaleString();
   if ($("bestResult")) $("bestResult").textContent = save.best.toLocaleString();
 
   $("overlay")?.classList.remove("active");
@@ -677,8 +803,12 @@ function update(dt) {
     });
   }
 
+  const magnetRadius = 25
+    + runUpgrades.magnet*15
+    + (save.upgrades.hull||0)*3;
+
   crystals.forEach(c => {
-    if (Math.hypot(player.x-c.x,player.y-c.y) < 25) {
+    if (Math.hypot(player.x-c.x,player.y-c.y) < magnetRadius) {
       c.collected = true;
       earned += 25;
       score += Math.round(50*(1+runUpgrades.score*.2));
@@ -966,10 +1096,10 @@ function updateHUD() {
 /* PERMANENT UPGRADES */
 
 const upgradeInfo = [
-  {id:"hull",name:"Stronger Hull",description:"Every 5 levels adds one starting life.",base:150,growth:1.18},
+  {id:"hull",name:"Crystal Magnet",description:"Collect crystals from further away.",base:150,growth:1.18},
   {id:"engine",name:"Engine Boost",description:"Every level slightly improves movement speed.",base:125,growth:1.20},
   {id:"weapon",name:"Weapon System",description:"Every level slightly increases firing speed.",base:200,growth:1.22},
-  {id:"extra",name:"Extra Life",description:"Adds one starting life per purchase.",base:300,growth:1.25}
+  {id:"fortune",name:"Credit Bonus",description:"Earn 5% more credits per upgrade level.",base:300,growth:1.25}
 ];
 
 function getUpgradeCost(u) {
@@ -1302,6 +1432,7 @@ function installPackAnimation() {
 
   s.textContent = `
     #packAnimation {
+      --pack-color:#a0a0a0;
       display:none;
       position:fixed;
       inset:0;
@@ -1322,7 +1453,7 @@ function installPackAnimation() {
 
     .animated-pack {
       font-size:100px;
-      filter:drop-shadow(0 0 25px #55edff);
+      filter:drop-shadow(0 0 35px var(--pack-color));
       animation:packFloat .7s ease-in-out infinite alternate;
       position:relative;
       z-index:2;
@@ -1332,10 +1463,10 @@ function installPackAnimation() {
     .pack-burst { animation:packBurst .65s ease-out forwards }
 
     #packAnimation h2 {
-      color:#60f4ff;
+      color:var(--pack-color);
       margin-top:25px;
       font-size:25px;
-      text-shadow:0 0 15px #55edff;
+      text-shadow:0 0 22px var(--pack-color);
       position:relative;
       z-index:2;
     }
@@ -1349,19 +1480,35 @@ function installPackAnimation() {
     #packSkipButton {
       margin-top:28px;
       padding:13px 24px;
-      border:1px solid #5ffaff;
+      border:1px solid var(--pack-color);
       border-radius:30px;
       background:#142b50;
       color:#fff;
       font-weight:800;
       letter-spacing:1px;
       cursor:pointer;
-      box-shadow:0 0 15px #55edff66;
+      box-shadow:0 0 15px var(--pack-color);
       position:relative;
       z-index:5;
     }
 
     #packSkipButton:active { transform:scale(.96) }
+
+    #packAnimation.tier-common {
+      background:radial-gradient(circle,#303039 0%,#171020 48%,#03040d 100%);
+    }
+
+    #packAnimation.tier-uncommon {
+      background:radial-gradient(circle,#12452f 0%,#10251e 48%,#03040d 100%);
+    }
+
+    #packAnimation.tier-rare {
+      background:radial-gradient(circle,#123a70 0%,#101a38 48%,#03040d 100%);
+    }
+
+    #packAnimation.tier-epic {
+      background:radial-gradient(circle,#40145f 0%,#1a0a35 48%,#03040d 100%);
+    }
 
     #packAnimation.tier-legendary {
       background:radial-gradient(circle,#49300b 0%,#171020 48%,#03040d 100%);
@@ -1375,16 +1522,43 @@ function installPackAnimation() {
       background:radial-gradient(circle,#66552b 0%,#28213a 40%,#03040d 100%);
     }
 
+    .pack-ring {
+      position:absolute;
+      width:160px;
+      height:160px;
+      border:3px solid var(--pack-color);
+      border-radius:50%;
+      opacity:0;
+      pointer-events:none;
+      z-index:1;
+      animation:packRing 1.5s ease-out infinite;
+    }
+
     #packAnimation.tier-legendary .animated-pack {
-      filter:drop-shadow(0 0 35px #ffb52e);
+      filter:drop-shadow(0 0 40px #ffb52e);
     }
 
     #packAnimation.tier-mythic .animated-pack {
-      filter:drop-shadow(0 0 40px #c477ff);
+      filter:drop-shadow(0 0 45px #c477ff);
     }
 
     #packAnimation.tier-divine .animated-pack {
-      filter:drop-shadow(0 0 50px #fff2c2);
+      filter:drop-shadow(0 0 55px #fff2c2);
+    }
+
+    #packAnimation.tier-legendary .pack-ring {
+      animation-duration:1.1s;
+      border-width:4px;
+    }
+
+    #packAnimation.tier-mythic .pack-ring {
+      animation-duration:.9s;
+      border-width:4px;
+    }
+
+    #packAnimation.tier-divine .pack-ring {
+      animation-duration:.7s;
+      border-width:5px;
     }
 
     #packAnimation.tier-legendary h2 {
@@ -1400,32 +1574,6 @@ function installPackAnimation() {
     #packAnimation.tier-divine h2 {
       color:#fff2c2;
       text-shadow:0 0 25px #fff2c2;
-    }
-
-    .pack-ring {
-      position:absolute;
-      width:160px;
-      height:160px;
-      border:3px solid currentColor;
-      border-radius:50%;
-      opacity:0;
-      pointer-events:none;
-      z-index:1;
-    }
-
-    .tier-legendary .pack-ring {
-      color:#ffbd3f;
-      animation:packRing 1.5s ease-out infinite;
-    }
-
-    .tier-mythic .pack-ring {
-      color:#c477ff;
-      animation:packRing 1.3s ease-out infinite;
-    }
-
-    .tier-divine .pack-ring {
-      color:#fff2c2;
-      animation:packRing 1.1s ease-out infinite;
     }
 
     .pack-flash {
@@ -1520,6 +1668,9 @@ function showPackStage(rarity,titleText,description) {
   const pack = $("animatedPack");
 
   overlay.className = "active tier-"+rarity;
+
+  // Iedere zeldzaamheid krijgt direct haar eigen kleur.
+  overlay.style.setProperty("--pack-color",rarityColors[rarity] || "#ffffff");
 
   title.textContent = titleText;
   text.textContent = description;
