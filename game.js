@@ -21,7 +21,7 @@
     save = { ...defaults, ...JSON.parse(localStorage.getItem(SAVE_KEY) || "{}") };
     save.upgrades = { ...defaults.upgrades, ...(save.upgrades || {}) };
   } catch {
-    save = structuredClone(defaults);
+    save = { ...defaults, upgrades: { ...defaults.upgrades } };
   }
 
   function persist() {
@@ -122,6 +122,7 @@
 
       const bars = document.createElement("div");
       bars.className = "level-bars";
+
       for (let i = 0; i < item.max; i++) {
         const bar = document.createElement("i");
         if (i < current) bar.className = "filled";
@@ -177,6 +178,7 @@
     shieldTime = 0;
     slowTime = 0;
     lives = 3 + save.upgrades.extra;
+
     player = {
       x: W / 2,
       y: H - 105,
@@ -184,12 +186,16 @@
       height: 42,
       speed: 310 + save.upgrades.engine * 35
     };
+
     targetX = player.x;
+
     save.runs++;
     persist();
+
     $("score").textContent = "0";
     $("lives").textContent = "♥".repeat(lives);
     $("overlay").classList.add("hidden");
+
     showScreen("gameScreen");
     sound(400, .15);
     lastTime = performance.now();
@@ -244,6 +250,7 @@
     for (let i = 0; i < amount; i++) {
       const angle = Math.random() * Math.PI * 2;
       const speed = 45 + Math.random() * 180;
+
       particles.push({
         x, y,
         vx: Math.cos(angle) * speed,
@@ -271,11 +278,13 @@
       burst(obj.x, obj.y, "#b18aff", 18);
       sound(450, .18);
     }
+
     objects.splice(objects.indexOf(obj), 1);
   }
 
   function damage(obj) {
     if (invincible > 0) return;
+
     if (shieldTime > 0) {
       shieldTime = 0;
       burst(obj.x, obj.y, "#55ffb8", 20);
@@ -287,8 +296,10 @@
     lives--;
     invincible = 1.5;
     shake = 12;
+
     burst(player.x, player.y, "#ff4f9a", 22);
     sound(120, .25, "sawtooth");
+
     objects.splice(objects.indexOf(obj), 1);
     $("lives").textContent = "♥".repeat(Math.max(0, lives));
 
@@ -297,6 +308,7 @@
 
   function endRun() {
     if (state !== "playing") return;
+
     state = "result";
     save.credits += earned;
     save.best = Math.max(save.best, score);
@@ -305,12 +317,14 @@
     $("finalScore").textContent = score;
     $("earned").textContent = `+${earned} ◈`;
     $("bestResult").textContent = save.best;
+
     showScreen("result");
     sound(180, .3);
   }
 
   function pauseGame() {
     if (state !== "playing") return;
+
     state = "paused";
     $("overlayTag").textContent = "MISSION PAUSED";
     $("overlayTitle").textContent = "PAUSED";
@@ -321,6 +335,7 @@
 
   function resumeGame() {
     if (state !== "paused") return;
+
     $("overlay").classList.add("hidden");
     state = "playing";
     lastTime = performance.now();
@@ -328,6 +343,7 @@
 
   function quitGame() {
     if (state !== "paused") return;
+
     save.credits += earned;
     save.best = Math.max(save.best, score);
     persist();
@@ -339,39 +355,45 @@
     gradient.addColorStop(0, "#090d26");
     gradient.addColorStop(.55, "#10102c");
     gradient.addColorStop(1, "#070b1c");
+
     ctx.fillStyle = gradient;
     ctx.fillRect(0, 0, W, H);
 
     stars.forEach(star => {
       star.y += star.speed * dt;
+
       if (star.y > H) {
         star.y = 0;
         star.x = Math.random() * W;
       }
+
       ctx.globalAlpha = star.alpha;
       ctx.fillStyle = "#d7faff";
       ctx.beginPath();
       ctx.arc(star.x, star.y, star.size, 0, Math.PI * 2);
       ctx.fill();
     });
+
     ctx.globalAlpha = 1;
 
-    // Distant planet
     ctx.save();
     ctx.globalAlpha = .22;
+
     const planetGlow = ctx.createRadialGradient(315, 185, 10, 315, 185, 105);
     planetGlow.addColorStop(0, "#c18aff");
     planetGlow.addColorStop(.65, "#563c9c");
     planetGlow.addColorStop(1, "transparent");
+
     ctx.fillStyle = planetGlow;
     ctx.beginPath();
     ctx.arc(315, 185, 105, 0, Math.PI * 2);
     ctx.fill();
+
     ctx.restore();
 
-    // Moving space lanes
     ctx.strokeStyle = "rgba(72,234,255,.045)";
     ctx.lineWidth = 1;
+
     for (let x = 30; x < W; x += 60) {
       ctx.beginPath();
       ctx.moveTo(x, 0);
@@ -387,12 +409,13 @@
     ctx.save();
     ctx.translate(player.x, player.y);
 
-    // Engine flame
     const flame = 15 + Math.random() * 13;
     const fire = ctx.createLinearGradient(0, 15, 0, 15 + flame);
+
     fire.addColorStop(0, "#ffffff");
     fire.addColorStop(.3, "#48eaff");
     fire.addColorStop(1, "transparent");
+
     ctx.fillStyle = fire;
     ctx.beginPath();
     ctx.moveTo(-8, 14);
@@ -401,10 +424,10 @@
     ctx.closePath();
     ctx.fill();
 
-    // Wings
     ctx.shadowBlur = 18;
     ctx.shadowColor = "#48eaff";
     ctx.fillStyle = "#297ca8";
+
     ctx.beginPath();
     ctx.moveTo(-9, -2);
     ctx.lineTo(-26, 17);
@@ -419,11 +442,11 @@
     ctx.closePath();
     ctx.fill();
 
-    // Main hull
     const hull = ctx.createLinearGradient(-15, 0, 15, 0);
     hull.addColorStop(0, "#5e8dff");
     hull.addColorStop(.5, "#efffff");
     hull.addColorStop(1, "#45c9ff");
+
     ctx.fillStyle = hull;
     ctx.beginPath();
     ctx.moveTo(0, -27);
@@ -446,6 +469,7 @@
       ctx.arc(0, 0, 34, 0, Math.PI * 2);
       ctx.stroke();
     }
+
     ctx.restore();
   }
 
@@ -453,11 +477,13 @@
     ctx.save();
     ctx.translate(o.x, o.y);
     ctx.rotate(o.rotation);
+
     ctx.shadowBlur = 12;
     ctx.shadowColor = "#ff5b9b";
     ctx.fillStyle = "#65516e";
     ctx.strokeStyle = "#d18aa9";
     ctx.lineWidth = 2;
+
     ctx.beginPath();
 
     for (let i = 0; i < o.sides; i++) {
@@ -465,9 +491,11 @@
       const r = o.radius * (.78 + .25 * Math.sin(i * 4.7));
       const x = Math.cos(a) * r;
       const y = Math.sin(a) * r;
+
       if (i === 0) ctx.moveTo(x, y);
       else ctx.lineTo(x, y);
     }
+
     ctx.closePath();
     ctx.fill();
     ctx.stroke();
@@ -476,6 +504,7 @@
     ctx.beginPath();
     ctx.arc(-o.radius * .25, -o.radius * .2, o.radius * .18, 0, Math.PI * 2);
     ctx.fill();
+
     ctx.restore();
   }
 
@@ -483,11 +512,13 @@
     ctx.save();
     ctx.translate(o.x, o.y);
     ctx.rotate(Math.sin(elapsed * 3 + o.phase) * .12);
+
     ctx.shadowBlur = 16;
     ctx.shadowColor = "#ff4f9a";
     ctx.fillStyle = "#622b67";
     ctx.strokeStyle = "#ff80ce";
     ctx.lineWidth = 2;
+
     ctx.beginPath();
     ctx.moveTo(0, -18);
     ctx.lineTo(20, 0);
@@ -496,10 +527,12 @@
     ctx.closePath();
     ctx.fill();
     ctx.stroke();
+
     ctx.fillStyle = "#fff";
     ctx.beginPath();
     ctx.arc(0, 0, 5, 0, Math.PI * 2);
     ctx.fill();
+
     ctx.restore();
   }
 
@@ -507,9 +540,11 @@
     ctx.save();
     ctx.translate(o.x, o.y);
     ctx.rotate(elapsed * 2);
+
     ctx.shadowBlur = 20;
     ctx.shadowColor = "#48eaff";
     ctx.fillStyle = "#48eaff";
+
     ctx.beginPath();
     ctx.moveTo(0, -13);
     ctx.lineTo(10, 0);
@@ -517,25 +552,31 @@
     ctx.lineTo(-10, 0);
     ctx.closePath();
     ctx.fill();
+
     ctx.restore();
   }
 
   function drawPowerup(o) {
     const color = o.type === "shield" ? "#55ffb8" : "#b18aff";
+
     ctx.save();
     ctx.translate(o.x, o.y);
+
     ctx.shadowBlur = 18;
     ctx.shadowColor = color;
     ctx.strokeStyle = color;
     ctx.lineWidth = 3;
+
     ctx.beginPath();
     ctx.arc(0, 0, 12, 0, Math.PI * 2);
     ctx.stroke();
+
     ctx.fillStyle = color;
     ctx.font = "bold 15px Arial";
     ctx.textAlign = "center";
     ctx.textBaseline = "middle";
     ctx.fillText(o.type === "shield" ? "S" : "Z", 0, 1);
+
     ctx.restore();
   }
 
@@ -555,18 +596,22 @@
       p.life -= dt;
       p.vx *= .98;
       p.vy *= .98;
+
       ctx.globalAlpha = Math.max(0, p.life / p.max);
       ctx.fillStyle = p.color;
+
       ctx.beginPath();
       ctx.arc(p.x, p.y, p.size, 0, Math.PI * 2);
       ctx.fill();
     });
+
     ctx.globalAlpha = 1;
     particles = particles.filter(p => p.life > 0);
   }
 
   function drawGame(dt) {
     ctx.save();
+
     if (shake > 0) {
       ctx.translate((Math.random() - .5) * shake, (Math.random() - .5) * shake);
       shake *= .88;
@@ -581,6 +626,7 @@
 
     if (toastTime > 0) {
       toastTime -= dt;
+
       ctx.save();
       ctx.globalAlpha = Math.min(1, toastTime * 2);
       ctx.textAlign = "center";
@@ -596,6 +642,7 @@
       ctx.fillStyle = "#fff";
       ctx.font = "bold 12px Arial";
       ctx.textAlign = "left";
+
       if (shieldTime > 0) ctx.fillText(`SHIELD ${shieldTime.toFixed(1)}s`, 12, H - 18);
       if (slowTime > 0) ctx.fillText(`SLOW-MO ${slowTime.toFixed(1)}s`, 12, H - (shieldTime > 0 ? 36 : 18));
     }
@@ -604,30 +651,37 @@
   function update(dt) {
     elapsed += dt;
     score += Math.floor(dt * 12);
+
     invincible = Math.max(0, invincible - dt);
     shieldTime = Math.max(0, shieldTime - dt);
     slowTime = Math.max(0, slowTime - dt);
 
     const newLevel = Math.floor(score / 1500) + 1;
+
     if (newLevel > level) {
       level = newLevel;
+
       const bonus = 25 + level * 10;
       earned += bonus;
+
       toast = `LEVEL ${level}  +${bonus} CREDITS`;
       toastTime = 2.5;
+
       burst(W / 2, 160, "#48eaff", 30);
       sound(750, .25);
     }
 
     $("score").textContent = score;
 
-    const dx = targetX - player.x;
-    const move = player.speed * dt;
-    player.x += Math.sign(dx) * Math.min(Math.abs(dx), move);
-    player.x = Math.max(25, Math.min(W - 25, player.x));
+    // INSTANT 1:1 TOUCH CONTROL
+    // The ship immediately moves to the exact finger position.
+    // No speed limit, acceleration or movement delay.
+    player.x = Math.max(25, Math.min(W - 25, targetX));
 
     const d = difficulty();
+
     spawnTimer -= dt;
+
     if (spawnTimer <= 0) {
       spawnObject();
       spawnTimer = d.interval * (.8 + Math.random() * .45);
@@ -635,13 +689,16 @@
 
     objects.forEach(o => {
       const speedFactor = slowTime > 0 ? .48 : 1;
+
       o.y += o.speed * speedFactor * dt;
+
       if (o.type === "rock") o.rotation += o.spin * dt;
       if (o.type === "drone") o.x += Math.sin(elapsed * 2 + o.phase) * 35 * dt;
 
       if (o.type === "crystal" && save.upgrades.magnet > 0) {
         const range = 35 + save.upgrades.magnet * 19;
         const distance = Math.hypot(player.x - o.x, player.y - o.y);
+
         if (distance < range) {
           o.x += (player.x - o.x) * dt * 3;
           o.y += (player.y - o.y) * dt * 3;
@@ -649,7 +706,7 @@
       }
 
       const distance = Math.hypot(player.x - o.x, player.y - o.y);
-      const hitDistance = o.type === "rock" ? o.radius + 17 : o.radius + 17;
+      const hitDistance = o.radius + 17;
 
       if (distance < hitDistance) {
         if (o.type === "crystal" || o.type === "shield" || o.type === "slow") {
@@ -661,15 +718,18 @@
     });
 
     objects = objects.filter(o => o.y < H + 50);
+
     drawGame(dt);
   }
 
   function loop(time) {
     requestAnimationFrame(loop);
+
     if (state !== "playing") return;
 
     const dt = Math.min((time - lastTime) / 1000, .035);
     lastTime = time;
+
     update(dt);
   }
 
@@ -681,8 +741,10 @@
 
   canvas.addEventListener("pointerdown", event => {
     if (state !== "playing") return;
+
     pointerDown = true;
     targetX = pointerPosition(event);
+
     canvas.setPointerCapture(event.pointerId);
   });
 
@@ -692,14 +754,27 @@
     }
   });
 
-  canvas.addEventListener("pointerup", () => pointerDown = false);
-  canvas.addEventListener("pointercancel", () => pointerDown = false);
+  canvas.addEventListener("pointerup", () => {
+    pointerDown = false;
+  });
+
+  canvas.addEventListener("pointercancel", () => {
+    pointerDown = false;
+  });
 
   document.addEventListener("keydown", event => {
     if (state === "playing") {
-      if (event.key === "ArrowLeft" || event.key.toLowerCase() === "a") targetX = 25;
-      if (event.key === "ArrowRight" || event.key.toLowerCase() === "d") targetX = W - 25;
-      if (event.key === "Escape" || event.key === " ") pauseGame();
+      if (event.key === "ArrowLeft" || event.key.toLowerCase() === "a") {
+        targetX = 25;
+      }
+
+      if (event.key === "ArrowRight" || event.key.toLowerCase() === "d") {
+        targetX = W - 25;
+      }
+
+      if (event.key === "Escape" || event.key === " ") {
+        pauseGame();
+      }
     } else if (state === "paused" && (event.key === "Escape" || event.key === " ")) {
       resumeGame();
     }
@@ -718,5 +793,6 @@
   newStars();
   updateMenus();
   showScreen("home");
+
   requestAnimationFrame(loop);
 })();
