@@ -18,13 +18,24 @@ canvas.height = H;
 const SAVE_KEY = "neonDriftSpaceArcade_v1";
 const previousSave = localStorage.getItem(SAVE_KEY);
 
+const starterItems = [
+  "weapon_basic", "module_basic",
+  "engine_basic", "drone_basic", "shield_basic"
+];
+
 const defaults = {
   credits: 0,
   best: 0,
   runs: 0,
   upgrades: { hull: 0, engine: 0, weapon: 0, extra: 0 },
-  inventory: ["weapon_basic", "module_basic"],
-  equipped: { weapon: "weapon_basic", module: "module_basic" },
+  inventory: [...starterItems],
+  equipped: {
+    weapon: "weapon_basic",
+    module: "module_basic",
+    engine: "engine_basic",
+    drone: "drone_basic",
+    shield: "shield_basic"
+  },
   dailyClaim: "",
   personalBonusClaimed: false
 };
@@ -37,10 +48,11 @@ function loadSave() {
       ...(old || {}),
       upgrades: { ...defaults.upgrades, ...(old?.upgrades || {}) },
       equipped: { ...defaults.equipped, ...(old?.equipped || {}) },
-      inventory: Array.isArray(old?.inventory) ? old.inventory : [...defaults.inventory]
+      inventory: Array.isArray(old?.inventory)
+        ? [...new Set([...starterItems, ...old.inventory])]
+        : [...starterItems]
     };
 
-    // Eenmalige bonus voor een bestaande save op dit apparaat.
     if (old && !old.personalBonusClaimed) {
       result.credits += 100000;
       result.personalBonusClaimed = true;
@@ -48,8 +60,12 @@ function loadSave() {
 
     return result;
   } catch {
-    return { ...defaults, upgrades: { ...defaults.upgrades },
-      equipped: { ...defaults.equipped }, inventory: [...defaults.inventory] };
+    return {
+      ...defaults,
+      upgrades: { ...defaults.upgrades },
+      equipped: { ...defaults.equipped },
+      inventory: [...starterItems]
+    };
   }
 }
 
@@ -63,25 +79,241 @@ function saveGame() {
   }
 }
 
-const items = {
-  weapon_basic: { id:"weapon_basic", name:"Pulse Blaster", type:"weapon", rarity:"common", icon:"🔫", damage:1, fireRate:.38, color:"#55edff" },
-  weapon_double: { id:"weapon_double", name:"Twin Blasters", type:"weapon", rarity:"uncommon", icon:"⚔️", damage:1, fireRate:.43, double:true, color:"#65ffbd" },
-  weapon_laser: { id:"weapon_laser", name:"Laser Cannon", type:"weapon", rarity:"rare", icon:"🔆", damage:2, fireRate:.48, color:"#a77bff" },
-  weapon_plasma: { id:"weapon_plasma", name:"Plasma Destroyer", type:"weapon", rarity:"epic", icon:"💥", damage:3, fireRate:.42, color:"#ff55c8" },
-  weapon_nova: { id:"weapon_nova", name:"Nova Blaster", type:"weapon", rarity:"legendary", icon:"🌟", damage:4, fireRate:.35, double:true, color:"#ffd45c" },
+/* ITEMS */
 
-  module_basic: { id:"module_basic", name:"Standard Core", type:"module", rarity:"common", icon:"🔋", health:0, color:"#55edff" },
-  module_shield: { id:"module_shield", name:"Shield Core", type:"module", rarity:"uncommon", icon:"🛡️", health:1, color:"#55aaff" },
-  module_speed: { id:"module_speed", name:"Velocity Core", type:"module", rarity:"rare", icon:"⚡", speed:1.25, color:"#65ffbd" },
-  module_reactor: { id:"module_reactor", name:"Reactor Core", type:"module", rarity:"epic", icon:"☢️", health:2, color:"#ff55c8" },
-  module_phantom: { id:"module_phantom", name:"Phantom Core", type:"module", rarity:"legendary", icon:"👾", health:2, speed:1.4, color:"#b18aff" }
+const items = {
+  // WEAPONS
+  weapon_basic: {
+    id:"weapon_basic", name:"Pulse Blaster", type:"weapon",
+    rarity:"common", icon:"🔫", damage:1, fireRate:.38,
+    color:"#55edff", description:"Your standard space weapon."
+  },
+  weapon_double: {
+    id:"weapon_double", name:"Twin Blasters", type:"weapon",
+    rarity:"uncommon", icon:"⚔️", damage:1, fireRate:.43,
+    double:true, color:"#65ffbd", description:"Fires two shots at once."
+  },
+  weapon_laser: {
+    id:"weapon_laser", name:"Laser Cannon", type:"weapon",
+    rarity:"rare", icon:"🔆", damage:2, fireRate:.48,
+    color:"#a77bff", description:"Powerful precision shots."
+  },
+  weapon_plasma: {
+    id:"weapon_plasma", name:"Plasma Destroyer", type:"weapon",
+    rarity:"epic", icon:"💥", damage:3, fireRate:.42,
+    color:"#ff55c8", description:"Heavy plasma damage."
+  },
+  weapon_nova: {
+    id:"weapon_nova", name:"Nova Blaster", type:"weapon",
+    rarity:"legendary", icon:"🌟", damage:4, fireRate:.35,
+    double:true, color:"#ffd45c", description:"A legendary double blaster."
+  },
+
+  // MODULES
+  module_basic: {
+    id:"module_basic", name:"Standard Core", type:"module",
+    rarity:"common", icon:"🔋", health:0,
+    color:"#55edff", description:"Your standard ship core."
+  },
+  module_shield: {
+    id:"module_shield", name:"Shield Core", type:"module",
+    rarity:"uncommon", icon:"🛡️", health:1,
+    color:"#55aaff", description:"Adds one starting life."
+  },
+  module_speed: {
+    id:"module_speed", name:"Velocity Core", type:"module",
+    rarity:"rare", icon:"⚡", speed:1.25,
+    color:"#65ffbd", description:"Improves ship speed."
+  },
+  module_reactor: {
+    id:"module_reactor", name:"Reactor Core", type:"module",
+    rarity:"epic", icon:"☢️", health:2,
+    color:"#ff55c8", description:"A powerful reactor with extra health."
+  },
+  module_phantom: {
+    id:"module_phantom", name:"Phantom Core", type:"module",
+    rarity:"legendary", icon:"👾", health:2, speed:1.4,
+    color:"#b18aff", description:"An advanced phantom reactor."
+  },
+
+  // ENGINES
+  engine_basic: {
+    id:"engine_basic", name:"Standard Engine", type:"engine",
+    rarity:"common", icon:"🚀", speed:1,
+    color:"#55edff", description:"A reliable standard engine."
+  },
+  engine_boost: {
+    id:"engine_boost", name:"Boost Engine", type:"engine",
+    rarity:"uncommon", icon:"💨", speed:1.12,
+    color:"#65ffbd", description:"A little extra movement speed."
+  },
+  engine_vortex: {
+    id:"engine_vortex", name:"Vortex Engine", type:"engine",
+    rarity:"rare", icon:"🌀", speed:1.22,
+    color:"#638cff", description:"A faster and more advanced engine."
+  },
+  engine_photon: {
+    id:"engine_photon", name:"Photon Engine", type:"engine",
+    rarity:"epic", icon:"✨", speed:1.35,
+    color:"#c17aff", description:"High-speed photon propulsion."
+  },
+  engine_inferno: {
+    id:"engine_inferno", name:"Inferno Engine", type:"engine",
+    rarity:"legendary", icon:"🔥", speed:1.48,
+    color:"#ff8b38", description:"A legendary high-speed engine."
+  },
+  engine_galaxy: {
+    id:"engine_galaxy", name:"Galaxy Engine", type:"engine",
+    rarity:"legendary", icon:"🌌", speed:1.55,
+    color:"#e1a0ff", description:"A second legendary engine."
+  },
+  engine_celestial: {
+    id:"engine_celestial", name:"Celestial Engine", type:"engine",
+    rarity:"mythic", icon:"🌠", speed:1.68,
+    color:"#ff62bd", description:"An incredibly rare engine."
+  },
+  engine_divine: {
+    id:"engine_divine", name:"Divine Engine", type:"engine",
+    rarity:"divine", icon:"☀️", speed:1.78,
+    color:"#fff18a", description:"An engine of extraordinary power."
+  },
+  engine_eternal: {
+    id:"engine_eternal", name:"Eternal Engine", type:"engine",
+    rarity:"eternal", icon:"♾️", speed:1.9,
+    color:"#ffffff", description:"One of the rarest engines in existence."
+  },
+
+  // DRONES
+  drone_basic: {
+    id:"drone_basic", name:"Scout Drone", type:"drone",
+    rarity:"common", icon:"🛸", droneDamage:1, droneRate:1.5,
+    color:"#55edff", description:"A small drone that helps you attack."
+  },
+  drone_guardian: {
+    id:"drone_guardian", name:"Guardian Drone", type:"drone",
+    rarity:"uncommon", icon:"🤖", droneDamage:1, droneRate:1.25,
+    color:"#65ffbd", description:"A reliable combat companion."
+  },
+  drone_hunter: {
+    id:"drone_hunter", name:"Hunter Drone", type:"drone",
+    rarity:"rare", icon:"🎯", droneDamage:2, droneRate:1.2,
+    color:"#638cff", description:"A stronger attacking drone."
+  },
+  drone_destroyer: {
+    id:"drone_destroyer", name:"Destroyer Drone", type:"drone",
+    rarity:"epic", icon:"💀", droneDamage:3, droneRate:1.1,
+    color:"#c17aff", description:"A powerful combat drone."
+  },
+  drone_phantom: {
+    id:"drone_phantom", name:"Phantom Drone", type:"drone",
+    rarity:"legendary", icon:"👻", droneDamage:4, droneRate:.95,
+    color:"#ff8bff", description:"A fast and powerful legendary drone."
+  },
+  drone_titan: {
+    id:"drone_titan", name:"Titan Drone", type:"drone",
+    rarity:"legendary", icon:"⚙️", droneDamage:5, droneRate:.9,
+    color:"#ffb34d", description:"A second legendary combat drone."
+  },
+  drone_mythic: {
+    id:"drone_mythic", name:"Mythic Drone", type:"drone",
+    rarity:"mythic", icon:"🐉", droneDamage:6, droneRate:.8,
+    color:"#ff62bd", description:"An extremely rare companion."
+  },
+  drone_divine: {
+    id:"drone_divine", name:"Divine Drone", type:"drone",
+    rarity:"divine", icon:"🪽", droneDamage:7, droneRate:.72,
+    color:"#fff18a", description:"A nearly unmatched combat drone."
+  },
+  drone_eternal: {
+    id:"drone_eternal", name:"Eternal Drone", type:"drone",
+    rarity:"eternal", icon:"👑", droneDamage:9, droneRate:.65,
+    color:"#ffffff", description:"The ultimate drone."
+  },
+
+  // SHIELDS
+  shield_basic: {
+    id:"shield_basic", name:"Standard Shield", type:"shield",
+    rarity:"common", icon:"🔰", charges:0,
+    color:"#55edff", description:"Standard ship protection."
+  },
+  shield_bubble: {
+    id:"shield_bubble", name:"Bubble Shield", type:"shield",
+    rarity:"uncommon", icon:"🫧", charges:1,
+    color:"#65ffbd", description:"Blocks one hit per run."
+  },
+  shield_energy: {
+    id:"shield_energy", name:"Energy Shield", type:"shield",
+    rarity:"rare", icon:"🛡️", charges:2,
+    color:"#638cff", description:"Blocks two hits per run."
+  },
+  shield_crystal: {
+    id:"shield_crystal", name:"Crystal Shield", type:"shield",
+    rarity:"epic", icon:"💎", charges:3,
+    color:"#c17aff", description:"Three extra protections."
+  },
+  shield_nova: {
+    id:"shield_nova", name:"Nova Shield", type:"shield",
+    rarity:"legendary", icon:"🌟", charges:4,
+    color:"#ffb34d", description:"A powerful four-charge shield."
+  },
+  shield_aurora: {
+    id:"shield_aurora", name:"Aurora Shield", type:"shield",
+    rarity:"legendary", icon:"🌈", charges:5,
+    color:"#ff8bff", description:"A second legendary shield."
+  },
+  shield_mythic: {
+    id:"shield_mythic", name:"Mythic Shield", type:"shield",
+    rarity:"mythic", icon:"🔮", charges:6,
+    color:"#ff62bd", description:"Extremely powerful protection."
+  },
+  shield_divine: {
+    id:"shield_divine", name:"Divine Shield", type:"shield",
+    rarity:"divine", icon:"✨", charges:7,
+    color:"#fff18a", description:"Exceptional protection."
+  },
+  shield_eternal: {
+    id:"shield_eternal", name:"Eternal Shield", type:"shield",
+    rarity:"eternal", icon:"♾️", charges:9,
+    color:"#ffffff", description:"The strongest shield available."
+  }
 };
 
 const rarityNames = {
-  common:"Common", uncommon:"Uncommon", rare:"Rare", epic:"Epic", legendary:"Legendary"
+  common:"Common",
+  uncommon:"Uncommon",
+  rare:"Rare",
+  epic:"Epic",
+  legendary:"Legendary",
+  mythic:"Mythic",
+  divine:"Divine",
+  celestial:"Celestial",
+  eternal:"Eternal"
+};
+
+const rarityColors = {
+  common:"#a0a0a0",
+  uncommon:"#35c779",
+  rare:"#3988ff",
+  epic:"#b15aff",
+  legendary:"#ffb52e",
+  mythic:"#ff477e",
+  divine:"#ffe27a",
+  celestial:"#55eaff",
+  eternal:"#ffffff"
 };
 
 const getItem = id => items[id] || items.weapon_basic;
+
+function installRarityStyles() {
+  const style = document.createElement("style");
+  style.textContent = Object.entries(rarityColors).map(([name,color]) =>
+    `.rarity-${name}{color:${color}!important;font-weight:700;text-shadow:0 0 8px ${color}44}`
+  ).join("\n");
+  document.head.appendChild(style);
+}
+installRarityStyles();
+
+/* GAME STATE */
 
 let gameState = "menu";
 let currentScreen = "home";
@@ -90,6 +322,8 @@ let lastFrame = 0;
 
 let score = 0, earned = 0, level = 1, lives = 3, gameTime = 0;
 let spawnTimer = 0, fireTimer = 0, crystalTimer = 0, invincible = 0;
+let droneTimer = 0;
+let shieldCharges = 0;
 
 let enemies = [], bullets = [], crystals = [], particles = [];
 let pointerDown = false, pointerX = W/2, pointerY = H-100;
@@ -97,14 +331,13 @@ const keys = {};
 
 const player = { x:W/2, y:H-100, speed:260 };
 
-// Tijdelijke upgrades: worden bij iedere nieuwe run gereset.
 let runUpgrades = {
-  damage: 0,
-  fireRate: 0,
-  speed: 0,
-  maxLives: 0,
-  shield: 0,
-  score: 0
+  damage:0,
+  fireRate:0,
+  speed:0,
+  maxLives:0,
+  shield:0,
+  score:0
 };
 
 function showScreen(id) {
@@ -114,7 +347,10 @@ function showScreen(id) {
     return;
   }
 
-  document.querySelectorAll(".screen").forEach(screen => screen.classList.remove("active"));
+  document.querySelectorAll(".screen").forEach(screen =>
+    screen.classList.remove("active")
+  );
+
   target.classList.add("active");
   currentScreen = id;
   updateAllUI();
@@ -127,7 +363,7 @@ document.querySelectorAll("[data-open]").forEach(button => {
   });
 });
 
-/* TEMPORARY UPGRADE MENU */
+/* TEMPORARY UPGRADES */
 
 function createUpgradeMenu() {
   if ($("runUpgradeMenu")) return;
@@ -135,32 +371,27 @@ function createUpgradeMenu() {
   const style = document.createElement("style");
   style.textContent = `
     #runUpgradeMenu {
-      display:none; position:fixed; inset:0; z-index:9999;
-      background:rgba(3,7,25,.94); color:white;
-      align-items:center; justify-content:center; padding:18px;
+      display:none;position:fixed;inset:0;z-index:9999;
+      background:rgba(3,7,25,.94);color:white;
+      align-items:center;justify-content:center;padding:18px;
       font-family:Arial,sans-serif;
     }
     #runUpgradeMenu .upgrade-panel {
-      width:min(100%,520px); text-align:center;
-      background:#111a38; border:1px solid #3c65a5;
-      border-radius:20px; padding:24px;
-      box-shadow:0 0 35px rgba(60,180,255,.2);
+      width:min(100%,520px);text-align:center;
+      background:#111a38;border:1px solid #3c65a5;
+      border-radius:20px;padding:24px;
     }
-    #runUpgradeMenu h2 { color:#5ffaff; margin:0 0 8px; }
-    #runUpgradeMenu .upgrade-subtitle { color:#aabbdc; margin-bottom:18px; }
+    #runUpgradeMenu h2{color:#5ffaff}
     #runUpgradeMenu .run-upgrade-choice {
-      display:block; width:100%; margin:10px 0; padding:16px;
-      border:1px solid #41649b; border-radius:12px;
-      background:#1b2a50; color:white; text-align:left;
-      cursor:pointer; font-size:15px;
-    }
-    #runUpgradeMenu .run-upgrade-choice:active {
-      transform:scale(.98); background:#284477;
+      display:block;width:100%;margin:10px 0;padding:16px;
+      border:1px solid #41649b;border-radius:12px;
+      background:#1b2a50;color:white;text-align:left;
+      cursor:pointer;font-size:15px;
     }
     #runUpgradeMenu .run-upgrade-choice strong {
-      display:block; color:#68f4ff; font-size:17px; margin-bottom:5px;
+      display:block;color:#68f4ff;font-size:17px;margin-bottom:5px;
     }
-    #runUpgradeMenu .run-upgrade-choice span { color:#c2cde4; }
+    #runUpgradeMenu .run-upgrade-choice span{color:#c2cde4}
   `;
   document.head.appendChild(style);
 
@@ -169,7 +400,7 @@ function createUpgradeMenu() {
   menu.innerHTML = `
     <div class="upgrade-panel">
       <h2>LEVEL UP!</h2>
-      <p class="upgrade-subtitle">Choose one upgrade for this run.</p>
+      <p>Choose one upgrade for this run.</p>
       <div id="runUpgradeChoices"></div>
     </div>
   `;
@@ -177,12 +408,12 @@ function createUpgradeMenu() {
 }
 
 const temporaryUpgradeOptions = [
-  { id:"damage", name:"Heavy Ammo", desc:"+1 damage per shot", apply:() => runUpgrades.damage++ },
-  { id:"fireRate", name:"Rapid Fire", desc:"Shoot 15% faster", apply:() => runUpgrades.fireRate++ },
-  { id:"speed", name:"Overdrive Engine", desc:"Move 15% faster", apply:() => runUpgrades.speed++ },
-  { id:"maxLives", name:"Emergency Repair", desc:"+1 extra life immediately", apply:() => { runUpgrades.maxLives++; lives++; } },
-  { id:"shield", name:"Energy Shield", desc:"More protection after taking a hit", apply:() => runUpgrades.shield++ },
-  { id:"score", name:"Score Booster", desc:"Earn 20% more points", apply:() => runUpgrades.score++ }
+  {name:"Heavy Ammo",desc:"+1 damage per shot",apply:()=>runUpgrades.damage++},
+  {name:"Rapid Fire",desc:"Shoot 15% faster",apply:()=>runUpgrades.fireRate++},
+  {name:"Overdrive Engine",desc:"Move 15% faster",apply:()=>runUpgrades.speed++},
+  {name:"Emergency Repair",desc:"+1 extra life immediately",apply:()=>{runUpgrades.maxLives++;lives++;}},
+  {name:"Energy Shield",desc:"More protection after taking a hit",apply:()=>runUpgrades.shield++},
+  {name:"Score Booster",desc:"Earn 20% more points",apply:()=>runUpgrades.score++}
 ];
 
 function showRunUpgrade() {
@@ -192,8 +423,8 @@ function showRunUpgrade() {
   const choices = $("runUpgradeChoices");
   choices.innerHTML = "";
 
-  const shuffled = [...temporaryUpgradeOptions].sort(() => Math.random() - .5);
-  const selected = shuffled.slice(0, 3);
+  const selected = [...temporaryUpgradeOptions]
+    .sort(() => Math.random()-.5).slice(0,3);
 
   selected.forEach(upgrade => {
     const button = document.createElement("button");
@@ -205,8 +436,9 @@ function showRunUpgrade() {
     const description = document.createElement("span");
     description.textContent = upgrade.desc;
 
-    button.append(title, description);
-    button.addEventListener("click", () => {
+    button.append(title,description);
+
+    button.addEventListener("click",() => {
       upgrade.apply();
       menu.style.display = "none";
       gameState = "playing";
@@ -223,6 +455,8 @@ function showRunUpgrade() {
   cancelAnimationFrame(animationId);
 }
 
+/* START / PAUSE / END */
+
 function startRun() {
   score = 0;
   earned = 0;
@@ -230,11 +464,16 @@ function startRun() {
   gameTime = 0;
 
   runUpgrades = {
-    damage:0, fireRate:0, speed:0, maxLives:0, shield:0, score:0
+    damage:0,fireRate:0,speed:0,maxLives:0,shield:0,score:0
   };
 
   const module = getItem(save.equipped.module);
-  lives = 3 + save.upgrades.extra + save.upgrades.hull + (module.health || 0);
+  const shield = getItem(save.equipped.shield);
+
+  lives = 3 + save.upgrades.extra + save.upgrades.hull +
+    (module.health || 0);
+
+  shieldCharges = shield.charges || 0;
 
   enemies = [];
   bullets = [];
@@ -244,6 +483,7 @@ function startRun() {
   spawnTimer = .6;
   fireTimer = 0;
   crystalTimer = 2;
+  droneTimer = .5;
   invincible = 2;
 
   player.x = W/2;
@@ -264,17 +504,20 @@ function startRun() {
 
 function pauseGame() {
   if (gameState !== "playing") return;
+
   gameState = "paused";
   cancelAnimationFrame(animationId);
 
   if ($("overlayTag")) $("overlayTag").textContent = "PAUSED";
   if ($("overlayTitle")) $("overlayTitle").textContent = "Game Paused";
   if ($("overlayText")) $("overlayText").textContent = "Continue when you're ready.";
+
   $("overlay")?.classList.add("active");
 }
 
 function resumeGame() {
   if (gameState !== "paused") return;
+
   $("overlay")?.classList.remove("active");
   gameState = "playing";
   lastFrame = 0;
@@ -283,6 +526,7 @@ function resumeGame() {
 
 function endRun() {
   if (gameState !== "playing") return;
+
   gameState = "over";
   cancelAnimationFrame(animationId);
 
@@ -290,7 +534,7 @@ function endRun() {
 
   save.runs++;
   save.credits += earned;
-  save.best = Math.max(save.best, score);
+  save.best = Math.max(save.best,score);
   saveGame();
 
   if ($("finalScore")) $("finalScore").textContent = score.toLocaleString();
@@ -301,6 +545,8 @@ function endRun() {
   showScreen("result");
 }
 
+/* CONTROLS */
+
 function getPointerPosition(event) {
   const rect = canvas.getBoundingClientRect();
   return {
@@ -309,8 +555,9 @@ function getPointerPosition(event) {
   };
 }
 
-canvas.addEventListener("pointerdown", event => {
+canvas.addEventListener("pointerdown",event => {
   if (gameState !== "playing") return;
+
   pointerDown = true;
   const p = getPointerPosition(event);
   pointerX = p.x;
@@ -318,29 +565,35 @@ canvas.addEventListener("pointerdown", event => {
   canvas.setPointerCapture?.(event.pointerId);
 });
 
-canvas.addEventListener("pointermove", event => {
+canvas.addEventListener("pointermove",event => {
   if (!pointerDown || gameState !== "playing") return;
+
   const p = getPointerPosition(event);
   pointerX = p.x;
   pointerY = p.y;
 });
 
-canvas.addEventListener("pointerup", () => pointerDown = false);
-canvas.addEventListener("pointercancel", () => pointerDown = false);
+canvas.addEventListener("pointerup",() => pointerDown = false);
+canvas.addEventListener("pointercancel",() => pointerDown = false);
 
-window.addEventListener("keydown", event => {
+window.addEventListener("keydown",event => {
   keys[event.key.toLowerCase()] = true;
   if (event.key === "Escape") pauseGame();
 });
 
-window.addEventListener("keyup", event => {
+window.addEventListener("keyup",event => {
   keys[event.key.toLowerCase()] = false;
 });
+
+/* GAME LOOP */
 
 function gameLoop(timestamp) {
   if (gameState !== "playing") return;
 
-  const dt = lastFrame ? Math.min((timestamp-lastFrame)/1000,.04) : .016;
+  const dt = lastFrame
+    ? Math.min((timestamp-lastFrame)/1000,.04)
+    : .016;
+
   lastFrame = timestamp;
 
   update(dt);
@@ -356,9 +609,13 @@ function update(dt) {
 
   const weapon = getItem(save.equipped.weapon);
   const module = getItem(save.equipped.module);
+  const engine = getItem(save.equipped.engine);
+  const drone = getItem(save.equipped.drone);
 
   const speed = (player.speed + save.upgrades.engine*18) *
-    (module.speed || 1) * (1 + runUpgrades.speed*.15);
+    (module.speed || 1) *
+    (engine.speed || 1) *
+    (1 + runUpgrades.speed*.15);
 
   if (keys.arrowleft || keys.a) player.x -= speed*dt;
   if (keys.arrowright || keys.d) player.x += speed*dt;
@@ -375,37 +632,72 @@ function update(dt) {
 
   if (invincible > 0) invincible -= dt;
 
+  // Main weapon
   fireTimer -= dt;
+
   if (fireTimer <= 0) {
     fireTimer = Math.max(.12,
-      weapon.fireRate - save.upgrades.weapon*.025
-    ) * Math.pow(.85, runUpgrades.fireRate);
+      weapon.fireRate-save.upgrades.weapon*.025
+    ) * Math.pow(.85,runUpgrades.fireRate);
 
-    const damage = (weapon.damage || 1) + runUpgrades.damage;
+    const damage = (weapon.damage || 1)+runUpgrades.damage;
 
     if (weapon.double) {
       bullets.push(
-        {x:player.x-11,y:player.y-18,damage},
-        {x:player.x+11,y:player.y-18,damage}
+        {x:player.x-11,y:player.y-18,damage,color:weapon.color},
+        {x:player.x+11,y:player.y-18,damage,color:weapon.color}
       );
     } else {
-      bullets.push({x:player.x,y:player.y-20,damage});
+      bullets.push({
+        x:player.x,y:player.y-20,damage,color:weapon.color
+      });
     }
   }
 
+  // Drone companion attacks
+  droneTimer -= dt;
+
+  if (droneTimer <= 0 && drone.droneDamage) {
+    droneTimer = drone.droneRate || 1.5;
+
+    bullets.push({
+      x:player.x-27,
+      y:player.y-8,
+      damage:drone.droneDamage,
+      color:drone.color,
+      droneShot:true
+    });
+
+    bullets.push({
+      x:player.x+27,
+      y:player.y-8,
+      damage:drone.droneDamage,
+      color:drone.color,
+      droneShot:true
+    });
+  }
+
+  // Enemies
   spawnTimer -= dt;
+
   if (spawnTimer <= 0) {
     spawnEnemy();
     spawnTimer = Math.max(.32,1.05-level*.045);
   }
 
+  // Crystals
   crystalTimer -= dt;
+
   if (crystalTimer <= 0) {
-    crystals.push({x:25+Math.random()*(W-50),y:-20,speed:120});
+    crystals.push({
+      x:25+Math.random()*(W-50),
+      y:-20,
+      speed:120
+    });
     crystalTimer = 3+Math.random()*3;
   }
 
-  bullets.forEach(b => b.y -= 520*dt);
+  bullets.forEach(b => b.y -= (b.droneShot?460:520)*dt);
   bullets = bullets.filter(b => b.y > -20);
 
   enemies.forEach(e => {
@@ -416,6 +708,7 @@ function update(dt) {
 
   crystals.forEach(c => c.y += c.speed*dt);
 
+  // Bullet collisions
   bullets.forEach(b => enemies.forEach(e => {
     if (e.dead) return;
 
@@ -425,7 +718,7 @@ function update(dt) {
 
       if (e.hp <= 0) {
         e.dead = true;
-        score += Math.round(e.points * (1 + runUpgrades.score*.2));
+        score += Math.round(e.points*(1+runUpgrades.score*.2));
         earned += e.reward;
         createParticles(e.x,e.y,12);
       }
@@ -435,34 +728,41 @@ function update(dt) {
   bullets = bullets.filter(b => b.y > -50);
   enemies = enemies.filter(e => !e.dead && e.y < H+40);
 
+  // Enemy collisions
   if (invincible <= 0) {
     enemies.forEach(e => {
-      if (!e.dead && Math.hypot(player.x-e.x,player.y-e.y) < e.radius+17) {
+      if (!e.dead &&
+          Math.hypot(player.x-e.x,player.y-e.y) < e.radius+17) {
         e.dead = true;
         loseLife();
       }
     });
   }
 
+  // Crystal collection
   crystals.forEach(c => {
     if (Math.hypot(player.x-c.x,player.y-c.y) < 25) {
       c.collected = true;
       earned += 25;
-      score += Math.round(50 * (1 + runUpgrades.score*.2));
+      score += Math.round(50*(1+runUpgrades.score*.2));
       createParticles(c.x,c.y,8);
     }
   });
 
   crystals = crystals.filter(c => !c.collected && c.y < H+20);
 
+  // Particles
   particles.forEach(p => {
     p.x += p.vx*dt;
     p.y += p.vy*dt;
     p.life -= dt;
   });
+
   particles = particles.filter(p => p.life > 0);
 
+  // Level up
   const newLevel = Math.floor(score/500)+1;
+
   if (newLevel > level) {
     level = newLevel;
     invincible = 1.5;
@@ -494,8 +794,17 @@ function spawnEnemy() {
 function loseLife() {
   if (invincible > 0) return;
 
+  // Shield absorbs hits first
+  if (shieldCharges > 0) {
+    shieldCharges--;
+    invincible = 1.8+runUpgrades.shield*.5;
+    createParticles(player.x,player.y,22);
+    updateHUD();
+    return;
+  }
+
   lives--;
-  invincible = 1.5 + runUpgrades.shield*.5;
+  invincible = 1.5+runUpgrades.shield*.5;
   createParticles(player.x,player.y,16);
   updateHUD();
 
@@ -516,21 +825,38 @@ function createParticles(x,y,amount) {
   }
 }
 
-/* SHIP APPEARANCE */
+/* SHIP DESIGN */
 
 function drawShip() {
   const weapon = getItem(save.equipped.weapon);
   const module = getItem(save.equipped.module);
+  const engine = getItem(save.equipped.engine);
+  const drone = getItem(save.equipped.drone);
+  const shield = getItem(save.equipped.shield);
 
   const weaponColor = weapon.color || "#55edff";
   const moduleColor = module.color || "#55edff";
+  const engineColor = engine.color || "#55edff";
 
   ctx.save();
   ctx.translate(player.x,player.y);
 
+  // Shield aura
+  if (shieldCharges > 0) {
+    ctx.strokeStyle = shield.color;
+    ctx.lineWidth = 2;
+    ctx.globalAlpha = .4+Math.sin(gameTime*5)*.2;
+    ctx.shadowColor = shield.color;
+    ctx.shadowBlur = 18;
+    ctx.beginPath();
+    ctx.arc(0,0,34,0,Math.PI*2);
+    ctx.stroke();
+    ctx.globalAlpha = 1;
+  }
+
   // Module aura
   if (module.id !== "module_basic") {
-    ctx.globalAlpha = .25 + Math.sin(gameTime*5)*.08;
+    ctx.globalAlpha = .25+Math.sin(gameTime*5)*.08;
     ctx.strokeStyle = moduleColor;
     ctx.lineWidth = 3;
     ctx.shadowColor = moduleColor;
@@ -542,8 +868,7 @@ function drawShip() {
   }
 
   // Wings
-  ctx.fillStyle = module.id === "module_speed" ? "#65ffbd" :
-    module.id === "module_phantom" ? "#b18aff" : "#2476a8";
+  ctx.fillStyle = moduleColor;
   ctx.beginPath();
   ctx.moveTo(-8,0);
   ctx.lineTo(-27,19);
@@ -565,22 +890,16 @@ function drawShip() {
     ctx.fillStyle = weaponColor;
     ctx.shadowColor = weaponColor;
     ctx.shadowBlur = 12;
-
     ctx.fillRect(-18,-10,6,23);
     ctx.fillRect(12,-10,6,23);
-
-    if (weapon.id === "weapon_laser" || weapon.id === "weapon_plasma" || weapon.id === "weapon_nova") {
-      ctx.fillRect(-23,-15,5,17);
-      ctx.fillRect(18,-15,5,17);
-    }
-
-    if (weapon.id === "weapon_nova") {
-      ctx.fillStyle = "#fff1a8";
-      ctx.beginPath();
-      ctx.arc(0,3,5,0,Math.PI*2);
-      ctx.fill();
-    }
   }
+
+  // Engine details
+  ctx.fillStyle = engineColor;
+  ctx.shadowColor = engineColor;
+  ctx.shadowBlur = 12;
+  ctx.fillRect(-13,17,5,8);
+  ctx.fillRect(8,17,5,8);
 
   // Main body
   ctx.fillStyle = moduleColor;
@@ -604,7 +923,7 @@ function drawShip() {
   ctx.closePath();
   ctx.fill();
 
-  // Reactor core
+  // Reactor
   ctx.fillStyle = weaponColor;
   ctx.shadowColor = weaponColor;
   ctx.shadowBlur = 14;
@@ -613,14 +932,28 @@ function drawShip() {
   ctx.fill();
 
   // Engine flame
-  ctx.fillStyle = module.id === "module_phantom" ? "#bd8aff" :
-    module.id === "module_speed" ? "#65ffbd" : "#55edff";
+  ctx.fillStyle = engineColor;
   ctx.beginPath();
   ctx.moveTo(-6,18);
   ctx.lineTo(0,29+Math.random()*7);
   ctx.lineTo(6,18);
   ctx.closePath();
   ctx.fill();
+
+  // Drone companions
+  if (drone.droneDamage) {
+    ctx.shadowColor = drone.color;
+    ctx.shadowBlur = 14;
+    ctx.fillStyle = drone.color;
+
+    ctx.beginPath();
+    ctx.arc(-29,0,5,0,Math.PI*2);
+    ctx.fill();
+
+    ctx.beginPath();
+    ctx.arc(29,0,5,0,Math.PI*2);
+    ctx.fill();
+  }
 
   ctx.restore();
 }
@@ -659,12 +992,13 @@ function draw() {
   });
 
   bullets.forEach(b => {
-    ctx.fillStyle=getItem(save.equipped.weapon).color || "#54f6ff";
-    ctx.shadowColor=ctx.fillStyle;
-    ctx.shadowBlur=12;
+    ctx.fillStyle = b.color || "#54f6ff";
+    ctx.shadowColor = ctx.fillStyle;
+    ctx.shadowBlur = 12;
     ctx.fillRect(b.x-3,b.y-10,6,17);
   });
-  ctx.shadowBlur=0;
+
+  ctx.shadowBlur = 0;
 
   enemies.forEach(e => {
     ctx.save();
@@ -699,7 +1033,11 @@ function draw() {
 function updateHUD() {
   if ($("score")) $("score").textContent=score.toLocaleString();
   if ($("levelHud")) $("levelHud").textContent=level;
-  if ($("lives")) $("lives").textContent=lives;
+
+  if ($("lives")) {
+    $("lives").textContent =
+      lives + (shieldCharges>0 ? ` + ${shieldCharges} 🛡️` : "");
+  }
 }
 
 /* PERMANENT UPGRADES */
@@ -714,11 +1052,13 @@ const upgradeInfo = [
 function renderUpgrades() {
   const container=$("upgradeList");
   if (!container) return;
+
   container.innerHTML="";
 
   upgradeInfo.forEach(upgrade => {
     const currentLevel=save.upgrades[upgrade.id];
     const cost=upgrade.base*(currentLevel+1);
+
     const card=document.createElement("div");
     card.className="upgrade-card";
 
@@ -733,11 +1073,14 @@ function renderUpgrades() {
 
     const button=document.createElement("button");
     button.className="upgrade-button";
-    button.textContent=currentLevel>=upgrade.max?"MAX LEVEL":`UPGRADE · ${cost} CR`;
+    button.textContent=currentLevel>=upgrade.max
+      ?"MAX LEVEL":`UPGRADE · ${cost} CR`;
+
     button.disabled=currentLevel>=upgrade.max || save.credits<cost;
 
     button.addEventListener("click",() => {
       if (save.upgrades[upgrade.id]>=upgrade.max || save.credits<cost) return;
+
       save.credits-=cost;
       save.upgrades[upgrade.id]++;
       saveGame();
@@ -749,47 +1092,113 @@ function renderUpgrades() {
   });
 }
 
-/* HANGAR */
+/* HANGAR AND INVENTORY */
 
-let inventoryFilter="all";
+let inventoryFilter = "all";
+
+const categoryNames = {
+  weapon:"Weapons",
+  module:"Modules",
+  engine:"Engines",
+  drone:"Drones",
+  shield:"Shields"
+};
+
+function createCategoryFilters() {
+  const container = $("inventory");
+  if (!container) return;
+
+  const parent = container.parentElement;
+  if (!parent) return;
+
+  let filterContainer = $("categoryFilters");
+
+  if (!filterContainer) {
+    filterContainer = document.createElement("div");
+    filterContainer.id = "categoryFilters";
+    filterContainer.style.cssText =
+      "display:flex;flex-wrap:wrap;gap:7px;margin:12px 0;";
+
+    parent.insertBefore(filterContainer,container);
+  }
+
+  filterContainer.innerHTML = "";
+
+  ["all","weapon","module","engine","drone","shield"].forEach(type => {
+    const button = document.createElement("button");
+    button.className = "filter";
+    button.dataset.filter = type;
+    button.textContent = type==="all" ? "All" : categoryNames[type];
+
+    if (inventoryFilter===type) button.classList.add("active");
+
+    button.addEventListener("click",() => {
+      inventoryFilter = type;
+      renderInventory();
+    });
+
+    filterContainer.appendChild(button);
+  });
+}
 
 function renderHangar() {
-  const weapon=getItem(save.equipped.weapon);
-  const module=getItem(save.equipped.module);
+  const equippedItems = [
+    ["weapon","Weapon"],
+    ["module","Module"],
+    ["engine","Engine"],
+    ["drone","Drone"],
+    ["shield","Shield"]
+  ];
 
   if ($("shipName")) $("shipName").textContent="NEON FIGHTER";
 
-  if ($("weaponSlots")) {
-    $("weaponSlots").innerHTML=`
+  const weaponSlot = $("weaponSlots");
+  const otherSlots = $("moduleSlots");
+
+  if (weaponSlot) {
+    const item = getItem(save.equipped.weapon);
+    weaponSlot.innerHTML = `
       <div class="equipment-slot">
         <strong>WEAPON</strong>
-        <div>${weapon.icon} ${weapon.name}</div>
-        <small class="rarity-${weapon.rarity}">${rarityNames[weapon.rarity]}</small>
+        <div>${item.icon} ${item.name}</div>
+        <small class="rarity-${item.rarity}">${rarityNames[item.rarity]}</small>
       </div>`;
   }
 
-  if ($("moduleSlots")) {
-    $("moduleSlots").innerHTML=`
-      <div class="equipment-slot">
-        <strong>MODULE</strong>
-        <div>${module.icon} ${module.name}</div>
-        <small class="rarity-${module.rarity}">${rarityNames[module.rarity]}</small>
-      </div>`;
+  if (otherSlots) {
+    otherSlots.innerHTML = equippedItems
+      .filter(([type])=>type!=="weapon")
+      .map(([type,label]) => {
+        const item = getItem(save.equipped[type]);
+        return `
+          <div class="equipment-slot">
+            <strong>${label.toUpperCase()}</strong>
+            <div>${item.icon} ${item.name}</div>
+            <small class="rarity-${item.rarity}">
+              ${rarityNames[item.rarity]}
+            </small>
+          </div>`;
+      }).join("");
   }
 
+  createCategoryFilters();
   renderInventory();
 }
 
 function renderInventory() {
   const container=$("inventory");
   if (!container) return;
+
   container.innerHTML="";
 
   [...new Set(save.inventory)].forEach(id => {
-    const item=getItem(id);
+    const item=items[id];
+    if (!item) return;
+
     if (inventoryFilter!=="all" && item.type!==inventoryFilter) return;
 
     const equipped=save.equipped[item.type]===item.id;
+
     const card=document.createElement("div");
     card.className="item-card";
 
@@ -804,6 +1213,10 @@ function renderInventory() {
     rarity.className=`rarity-${item.rarity}`;
     rarity.textContent=rarityNames[item.rarity];
 
+    const description=document.createElement("p");
+    description.textContent=item.description || "";
+    description.style.fontSize="12px";
+
     const button=document.createElement("button");
     button.textContent=equipped?"EQUIPPED":"EQUIP";
     button.disabled=equipped;
@@ -814,18 +1227,10 @@ function renderInventory() {
       updateAllUI();
     });
 
-    card.append(icon,name,rarity,button);
+    card.append(icon,name,rarity,description,button);
     container.appendChild(card);
   });
 }
-
-document.querySelectorAll(".filter").forEach(button => {
-  button.addEventListener("click",() => {
-    inventoryFilter=button.dataset.filter||"all";
-    document.querySelectorAll(".filter").forEach(b => b.classList.toggle("active",b===button));
-    renderInventory();
-  });
-});
 
 /* PACKS */
 
@@ -834,29 +1239,61 @@ function randomItem(elite=false) {
   let rarity;
 
   if (elite) {
-    if (roll<30) rarity="common";
-    else if (roll<55) rarity="uncommon";
-    else if (roll<80) rarity="rare";
-    else if (roll<95) rarity="epic";
-    else rarity="legendary";
+    if (roll<20) rarity="common";
+    else if (roll<38) rarity="uncommon";
+    else if (roll<57) rarity="rare";
+    else if (roll<75) rarity="epic";
+    else if (roll<88) rarity="legendary";
+    else if (roll<94) rarity="mythic";
+    else if (roll<97) rarity="divine";
+    else if (roll<99) rarity="celestial";
+    else rarity="eternal";
   } else {
-    if (roll<60) rarity="common";
-    else if (roll<85) rarity="uncommon";
-    else if (roll<95) rarity="rare";
-    else if (roll<99) rarity="epic";
-    else rarity="legendary";
+    if (roll<48) rarity="common";
+    else if (roll<72) rarity="uncommon";
+    else if (roll<86) rarity="rare";
+    else if (roll<94) rarity="epic";
+    else if (roll<97.5) rarity="legendary";
+    else if (roll<99) rarity="mythic";
+    else if (roll<99.6) rarity="divine";
+    else if (roll<99.9) rarity="celestial";
+    else rarity="eternal";
   }
 
   const possible=Object.values(items).filter(item=>item.rarity===rarity);
+
+  if (!possible.length) {
+    return items.weapon_basic;
+  }
+
   return possible[Math.floor(Math.random()*possible.length)];
+}
+
+function duplicateCredits(rarity) {
+  const values = {
+    common:50,
+    uncommon:100,
+    rare:175,
+    epic:300,
+    legendary:600,
+    mythic:1200,
+    divine:2500,
+    celestial:5000,
+    eternal:10000
+  };
+
+  return values[rarity] || 50;
 }
 
 function openPack(elite=false) {
   const item=randomItem(elite);
   const duplicate=save.inventory.includes(item.id);
 
-  if (!duplicate) save.inventory.push(item.id);
-  else save.credits+=item.rarity==="legendary"?150:50;
+  if (!duplicate) {
+    save.inventory.push(item.id);
+  } else {
+    save.credits+=duplicateCredits(item.rarity);
+  }
 
   saveGame();
 
@@ -867,13 +1304,14 @@ function openPack(elite=false) {
     $("packRarity").textContent=duplicate
       ? `${rarityNames[item.rarity]} · DUPLICATE BONUS`
       : rarityNames[item.rarity];
+
     $("packRarity").className=`rarity-${item.rarity}`;
   }
 
   if ($("packItemDesc")) {
     $("packItemDesc").textContent=duplicate
-      ? "You already owned this item. You received bonus credits."
-      : item.description||"A new item for your ship!";
+      ? `You already owned this item. You received ${duplicateCredits(item.rarity)} bonus credits.`
+      : `${categoryNames[item.type]} · ${item.description}`;
   }
 
   $("packResult")?.classList.remove("hidden");
@@ -888,9 +1326,11 @@ function todayString() {
 function updateDailyButton() {
   const button=$("dailyBtn");
   const status=$("dailyStatus");
+
   if (!button) return;
 
   const claimed=save.dailyClaim===todayString();
+
   button.disabled=claimed;
   button.textContent=claimed?"CLAIMED TODAY":"CLAIM DAILY PACK";
 
@@ -903,6 +1343,7 @@ function updateDailyButton() {
 
 $("dailyBtn")?.addEventListener("click",() => {
   if (save.dailyClaim===todayString()) return;
+
   save.dailyClaim=todayString();
   openPack(false);
   updateDailyButton();
@@ -910,7 +1351,10 @@ $("dailyBtn")?.addEventListener("click",() => {
 
 $("buyPackBtn")?.addEventListener("click",() => {
   if (save.credits<500) {
-    if ($("packItemDesc")) $("packItemDesc").textContent="You need 500 credits to buy this pack.";
+    if ($("packItemDesc")) {
+      $("packItemDesc").textContent="You need 500 credits to buy this pack.";
+    }
+
     $("packResult")?.classList.remove("hidden");
     return;
   }
@@ -936,9 +1380,15 @@ $("quitBtn")?.addEventListener("click",() => {
   gameState="menu";
   cancelAnimationFrame(animationId);
   $("overlay")?.classList.remove("active");
-  if ($("runUpgradeMenu")) $("runUpgradeMenu").style.display="none";
+
+  if ($("runUpgradeMenu")) {
+    $("runUpgradeMenu").style.display="none";
+  }
+
   showScreen("home");
 });
+
+/* UPDATE UI */
 
 function updateAllUI() {
   if ($("bank")) $("bank").textContent=save.credits.toLocaleString();
@@ -947,7 +1397,9 @@ function updateAllUI() {
 
   if ($("shipLevelHome")) {
     $("shipLevelHome").textContent=1+
-      save.upgrades.hull+save.upgrades.engine+save.upgrades.weapon;
+      save.upgrades.hull+
+      save.upgrades.engine+
+      save.upgrades.weapon;
   }
 
   renderHangar();
@@ -956,6 +1408,7 @@ function updateAllUI() {
   updateHUD();
 }
 
+saveGame();
 updateAllUI();
 showScreen("home");
 
