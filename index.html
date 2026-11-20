@@ -1,19 +1,193 @@
+
 <!DOCTYPE html>
 <html lang="en">
 <head>
   <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>NEON DRIFT</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
+  <meta name="theme-color" content="#070816">
+  <title>NEON DRIFT: AFTERBURN</title>
   <link rel="stylesheet" href="style.css">
 </head>
 <body>
-  <main class="game">
-    <h1>NEON DRIFT</h1>
-    <div class="score">SCORE: <span id="score">0</span></div>
-    <canvas id="game" width="360" height="600"></canvas>
-    <button id="start">START GAME</button>
-    <p>Move with ← → or A / D. On mobile, drag your finger.</p>
+  <main class="shell">
+
+    <header class="topbar">
+      <div class="brand">
+        <span class="brand-mark">✦</span>
+        <div>
+          <strong>NEON DRIFT</strong>
+          <small>AFTERBURN</small>
+        </div>
+      </div>
+      <div class="wallet">◆ <span id="bank">0</span></div>
+    </header>
+
+    <!-- MAIN MENU -->
+    <section id="home" class="screen active">
+      <div class="hero">
+        <div class="eyebrow">ARCADE SURVIVAL • SEASON 01</div>
+        <h1>OWN THE<br><em>NIGHT.</em></h1>
+        <p class="muted">Dodge. Collect. Upgrade. Survive as long as possible.</p>
+
+        <div class="ship-preview">△</div>
+
+        <button id="playBtn" class="primary">
+          START RUN <span>→</span>
+        </button>
+
+        <div class="home-actions">
+          <button class="secondary" data-screen="shop">GARAGE / UPGRADES</button>
+          <button class="secondary" data-screen="tutorial">HOW TO PLAY</button>
+        </div>
+      </div>
+
+      <div class="stats-row">
+        <div><small>HIGH SCORE</small><strong id="bestHome">0</strong></div>
+        <div><small>TOTAL RUNS</small><strong id="runsHome">0</strong></div>
+        <div><small>SHIP LEVEL</small><strong id="levelHome">1</strong></div>
+      </div>
+    </section>
+
+    <!-- TUTORIAL -->
+    <section id="tutorial" class="screen">
+      <button class="back" data-screen="home">← BACK</button>
+
+      <div class="eyebrow">FLIGHT SCHOOL</div>
+      <h2>HOW TO SURVIVE</h2>
+
+      <div class="guide-grid">
+        <article class="guide-card">
+          <b class="guide-icon cyan">↔</b>
+          <h3>MOVE</h3>
+          <p>Drag your finger across the game area. On desktop, use ← → or A / D.</p>
+        </article>
+
+        <article class="guide-card">
+          <b class="guide-icon pink">✕</b>
+          <h3>DODGE</h3>
+          <p>Avoid the pink obstacles. You start with 3 lives. Every collision costs one life.</p>
+        </article>
+
+        <article class="guide-card">
+          <b class="guide-icon gold">◆</b>
+          <h3>COLLECT</h3>
+          <p>Collect golden energy orbs to earn credits. Spend your credits in the garage.</p>
+        </article>
+
+        <article class="guide-card">
+          <b class="guide-icon purple">⬡</b>
+          <h3>POWER-UPS</h3>
+          <p>Blue shields give temporary protection. Purple boosts slow down obstacles.</p>
+        </article>
+      </div>
+
+      <button class="primary" data-screen="home">
+        I'M READY TO FLY →
+      </button>
+    </section>
+
+    <!-- GARAGE -->
+    <section id="shop" class="screen">
+      <button class="back" data-screen="home">← BACK</button>
+
+      <div class="eyebrow">HANGAR 09</div>
+      <h2>YOUR GARAGE</h2>
+      <p class="muted">Spend your credits on permanent upgrades.</p>
+
+      <div class="shop-balance">
+        ◆ <span id="shopBank">0</span> CREDITS
+      </div>
+
+      <div id="upgradeList" class="upgrade-list"></div>
+
+      <p class="tiny muted">Upgrades are saved on this device.</p>
+    </section>
+
+    <!-- GAME -->
+    <section id="gameScreen" class="screen game-screen">
+      <div class="hud">
+        <div>
+          <small>SCORE</small>
+          <strong id="score">0</strong>
+        </div>
+
+        <div>
+          <small>BEST</small>
+          <strong id="bestHud">0</strong>
+        </div>
+
+        <div>
+          <small>LIVES</small>
+          <strong id="lives">♥♥♥</strong>
+        </div>
+
+        <button id="pauseBtn" class="pause">Ⅱ</button>
+      </div>
+
+      <div class="canvas-wrap">
+        <canvas id="game" width="360" height="600"></canvas>
+
+        <div id="overlay" class="overlay hidden">
+          <div class="overlay-panel">
+            <div class="eyebrow" id="overlayTag">PAUSED</div>
+            <h2 id="overlayTitle">RUN PAUSED</h2>
+            <p id="overlayText">Take a breath.</p>
+
+            <button id="resumeBtn" class="primary">
+              RESUME GAME
+            </button>
+
+            <button id="quitBtn" class="secondary">
+              END RUN
+            </button>
+          </div>
+        </div>
+      </div>
+
+      <div class="game-tip">
+        DRAG TO MOVE <span>•</span> COLLECT ◆ <span>•</span> AVOID PINK
+      </div>
+    </section>
+
+    <!-- GAME OVER -->
+    <section id="result" class="screen">
+      <div class="eyebrow">RUN COMPLETE</div>
+      <h2>GAME OVER</h2>
+
+      <div class="result-score" id="finalScore">0</div>
+      <p class="muted">SCORE</p>
+
+      <div class="result-grid">
+        <div>
+          <small>CREDITS EARNED</small>
+          <strong id="earned">0</strong>
+        </div>
+
+        <div>
+          <small>HIGH SCORE</small>
+          <strong id="bestResult">0</strong>
+        </div>
+      </div>
+
+      <button id="againBtn" class="primary">
+        PLAY AGAIN →
+      </button>
+
+      <button class="secondary" data-screen="shop">
+        VIEW UPGRADES
+      </button>
+
+      <button class="text-button" data-screen="home">
+        BACK TO MAIN MENU
+      </button>
+    </section>
+
+    <footer>
+      NEON DRIFT <span>•</span> AFTERBURN EDITION
+    </footer>
+
   </main>
+
   <script src="game.js"></script>
 </body>
 </html>
