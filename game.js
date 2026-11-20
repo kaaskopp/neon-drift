@@ -1,18 +1,16 @@
-
 function startRun() {
   score = 0;
   earned = 0;
   level = 1;
 
   const module = getItem(save.equipped.module);
-
   lives = 3 + save.upgrades.extra + (module.health || 0);
 
   objects = [];
   bullets = [];
   particles = [];
 
-  spawnTimer = .5;
+  spawnTimer = 0.5;
   crystalTimer = 1;
   fireTimer = 0;
 
@@ -28,11 +26,10 @@ function startRun() {
   updateHUD();
 
   showScreen("gameScreen");
-
-  // IMPORTANT: the game loop requires this exact state.
   state = "playing";
 
   lastFrame = performance.now();
+
   cancelAnimationFrame(animationId);
   animationId = requestAnimationFrame(loop);
 }
