@@ -1,4 +1,3 @@
-
 (() => {
 "use strict";
 
@@ -13,6 +12,7 @@ if (!canvas || !ctx) {
 
 const W = 420, H = 700;
 const SAVE_KEY = "neonDriftSpaceArcade_v1";
+const LEVEL_DURATION = 300;
 
 canvas.width = W;
 canvas.height = H;
@@ -29,6 +29,8 @@ const defaults = {
   credits: 0,
   best: 0,
   runs: 0,
+  level: 1,
+  inbox: [],
   upgrades: { hull: 0, engine: 0, weapon: 0, fortune: 0 },
   inventory: [...starterItems],
   equipped: {
@@ -50,6 +52,8 @@ function loadSave() {
     const result = {
       ...defaults,
       ...(old || {}),
+      level: Math.max(1, Number(old?.level) || 1),
+      inbox: Array.isArray(old?.inbox) ? old.inbox : [],
       upgrades: { ...defaults.upgrades, ...(old?.upgrades || {}) },
       equipped: { ...defaults.equipped, ...(old?.equipped || {}) },
       inventory: Array.isArray(old?.inventory)
@@ -73,7 +77,8 @@ function loadSave() {
       ...defaults,
       upgrades: { ...defaults.upgrades },
       equipped: { ...defaults.equipped },
-      inventory: [...starterItems]
+      inventory: [...starterItems],
+      inbox: []
     };
   }
 }
@@ -98,7 +103,7 @@ const items = {
   weapon_comet:{id:"weapon_comet",name:"Comet Launcher",type:"weapon",rarity:"epic",icon:"☄️",damage:4,fireRate:.47,color:"#ff8b58",description:"Launches heavy comet energy."},
   weapon_solar:{id:"weapon_solar",name:"Solar Flare",type:"weapon",rarity:"legendary",icon:"☀️",damage:5,fireRate:.34,double:true,color:"#ffe27a",description:"Twin blasts of solar energy."},
   weapon_void:{id:"weapon_void",name:"Void Reaper",type:"weapon",rarity:"mythic",icon:"🌑",damage:6,fireRate:.32,color:"#d78aff",description:"A weapon forged in the void."},
-  weapon_omega:{id:"weapon_omega",name:"Omega Ray",type:"weapon",rarity:"divine",icon:"⚡",damage:7,fireRate:.29,double:true,color:"#fff18a",description:"A divine beam of immense power."},
+  weapon_omega:{id:"weapon_omega",name:"Omega Ray",type:"weapon",rarity:"divine",icon:"⚡",damage:7,fireRate:.29,double:true,color:"#fff18a",description:"A powerful beam of immense power."},
   weapon_quasar:{id:"weapon_quasar",name:"Quasar Annihilator",type:"weapon",rarity:"celestial",icon:"🌌",damage:9,fireRate:.28,double:true,color:"#55eaff",description:"A celestial burst of energy."},
   weapon_infinity:{id:"weapon_infinity",name:"Infinity Edge",type:"weapon",rarity:"eternal",icon:"♾️",damage:11,fireRate:.25,double:true,color:"#ffffff",description:"An almost impossible weapon to find."},
 
@@ -167,22 +172,12 @@ const items = {
   shield_immortal:{id:"shield_immortal",name:"Immortal Shield",type:"shield",rarity:"eternal",icon:"💠",charges:13,color:"#ffffff",description:"The rarest protection in the universe."}
 };
 
-// Celestial en Eternal blijven bestaan, maar worden Divine.
+// Celestial en Eternal worden Divine.
 Object.values(items).forEach(item => {
   if (item.rarity === "celestial" || item.rarity === "eternal") {
     item.rarity = "divine";
   }
 });
-
-const rarityNames = {
-  common:"Common",
-  uncommon:"Uncommon",
-  rare:"Rare",
-  epic:"Epic",
-  legendary:"Legendary",
-  mythic:"Mythic",
-  divine:"Divine"
-};
 
 const rarityColors = {
   common:"#a0a0a0",
@@ -280,7 +275,6 @@ const extraRarityStats = {
   divine:2.2
 };
 
-// Gebruik een aparte kleurentabel zodat er geen initialisatiefout ontstaat.
 const extraItemColors = {
   common:"#a0a0a0",
   uncommon:"#35c779",
@@ -344,13 +338,32 @@ function installRarityStyles() {
   s.id = "rarityStyles";
 
   s.textContent = Object.entries(rarityColors)
-    .map(([n,c]) => `.rarity-${n}{color:${c}!important;font-weight:700;text-shadow:0 0 8px ${c}44}`)
+    .map(([n,c]) => `
+      .rarity-${n} {
+        color:${c}!important;
+        font-weight:700;
+        text-shadow:0 0 8px ${c}66;
+      }
+      .rarity-dot.rarity-${n} {
+        display:block;
+        width:42px;
+        height:6px;
+        margin:7px auto;
+        border-radius:10px;
+        background:${c};
+        box-shadow:0 0 10px ${c}99;
+        color:transparent!important;
+        text-shadow:none!important;
+      }
+    `)
     .join("\n");
 
   document.head.appendChild(s);
 }
 
 installRarityStyles();
+
+/* GAME STATE */
 
 let gameState = "menu";
 let currentScreen = "home";
@@ -359,7 +372,7 @@ let lastFrame = 0;
 
 let score = 0;
 let earned = 0;
-let level = 1;
+let level = Math.max(1,save.level || 1);
 let lives = 3;
 let gameTime = 0;
 let spawnTimer = 0;
@@ -402,11 +415,13 @@ function showScreen(id) {
 }
 
 document.querySelectorAll("[data-open]").forEach(b => {
-  b.addEventListener("click", () => {
+  b.addEventListener("click",() => {
     if (gameState === "playing") pauseGame();
     showScreen(b.dataset.open);
   });
 });
+
+/* TEMPORARY UPGRADE MENU */
 
 function createUpgradeMenu() {
   if ($("runUpgradeMenu")) return;
@@ -503,7 +518,7 @@ function showRunUpgrade() {
 
       b.append(strong,span);
 
-      b.addEventListener("click", () => {
+      b.addEventListener("click",() => {
         u.apply();
         menu.style.display = "none";
         gameState = "playing";
@@ -520,10 +535,14 @@ function showRunUpgrade() {
   cancelAnimationFrame(animationId);
 }
 
+/* START LEVEL */
+
 function startRun() {
   score = 0;
   earned = 0;
-  level = 1;
+
+  // Start het opgeslagen volgende level.
+  level = Math.max(1,save.level || 1);
   gameTime = 0;
 
   runUpgrades = {
@@ -537,7 +556,7 @@ function startRun() {
 
   const shield = getItem(save.equipped.shield);
 
-  // Je hebt altijd precies drie levens.
+  // Altijd precies drie levens.
   lives = 3;
   shieldCharges = shield.charges || 0;
 
@@ -594,6 +613,41 @@ function resumeGame() {
   animationId = requestAnimationFrame(gameLoop);
 }
 
+/* LEVEL COMPLETED */
+
+function finishLevel() {
+  if (gameState !== "playing") return;
+
+  gameState = "over";
+  cancelAnimationFrame(animationId);
+
+  if ($("runUpgradeMenu")) {
+    $("runUpgradeMenu").style.display = "none";
+  }
+
+  const completedLevel = level;
+  const levelReward = 250 + completedLevel * 100;
+  const creditMultiplier = 1 + (save.upgrades.fortune || 0) * .05;
+  const totalReward = Math.floor((earned + levelReward) * creditMultiplier);
+
+  save.credits += totalReward;
+  save.runs++;
+  save.level = completedLevel + 1;
+  save.best = Math.max(save.best,score);
+
+  saveGame();
+
+  if ($("finalScore")) $("finalScore").textContent = score.toLocaleString();
+  if ($("earned")) $("earned").textContent = totalReward.toLocaleString();
+  if ($("bestResult")) $("bestResult").textContent = save.best.toLocaleString();
+  if ($("resultTitle")) $("resultTitle").textContent = `LEVEL ${completedLevel} COMPLETED!`;
+
+  $("overlay")?.classList.remove("active");
+  showScreen("result");
+}
+
+/* PLAYER DEFEATED */
+
 function endRun() {
   if (gameState !== "playing") return;
 
@@ -607,19 +661,26 @@ function endRun() {
   save.runs++;
 
   const creditMultiplier = 1+(save.upgrades.fortune||0)*.05;
-  save.credits += Math.floor(earned*creditMultiplier);
+  const totalReward = Math.floor(earned*creditMultiplier);
 
+  save.credits += totalReward;
   save.best = Math.max(save.best,score);
+
+  // Een verloren level wordt niet automatisch overgeslagen.
+  save.level = level;
 
   saveGame();
 
   if ($("finalScore")) $("finalScore").textContent = score.toLocaleString();
-  if ($("earned")) $("earned").textContent = Math.floor(earned*creditMultiplier).toLocaleString();
+  if ($("earned")) $("earned").textContent = totalReward.toLocaleString();
   if ($("bestResult")) $("bestResult").textContent = save.best.toLocaleString();
+  if ($("resultTitle")) $("resultTitle").textContent = "RUN OVER";
 
   $("overlay")?.classList.remove("active");
   showScreen("result");
 }
+
+/* CONTROLS */
 
 function getPointerPosition(e) {
   const r = canvas.getBoundingClientRect();
@@ -662,6 +723,8 @@ window.addEventListener("keyup",e => {
   keys[e.key.toLowerCase()] = false;
 });
 
+/* GAME LOOP */
+
 function gameLoop(t) {
   if (gameState !== "playing") return;
 
@@ -679,8 +742,21 @@ function gameLoop(t) {
   }
 }
 
+/* GAME UPDATE */
+
 function update(dt) {
   gameTime += dt;
+
+  // Ieder level duurt exact 300 seconden.
+  if (gameTime >= LEVEL_DURATION) {
+    gameTime = LEVEL_DURATION;
+    updateHUD();
+    finishLevel();
+    return;
+  }
+
+  const levelProgress = gameTime / LEVEL_DURATION;
+  const difficulty = (level - 1) * .12 + levelProgress * .9;
 
   const weapon = getItem(save.equipped.weapon);
   const module = getItem(save.equipped.module);
@@ -746,7 +822,11 @@ function update(dt) {
 
   if (spawnTimer <= 0) {
     spawnEnemy();
-    spawnTimer = Math.max(.32,1.05-level*.045);
+
+    spawnTimer = Math.max(
+      .28,
+      1.15 - (level-1)*.025 - levelProgress*.55
+    );
   }
 
   crystalTimer -= dt;
@@ -826,28 +906,26 @@ function update(dt) {
 
   particles = particles.filter(p => p.life > 0);
 
-  const next = Math.floor(score/500)+1;
-
-  if (next > level) {
-    level = next;
-    invincible = 1.5;
-    createParticles(player.x,player.y,20);
-    updateHUD();
-    showRunUpgrade();
-  }
-
   updateHUD();
 }
 
+/* ENEMY SPAWNING */
+
 function spawnEnemy() {
-  const tough = Math.random() < Math.min(.35,level*.035);
+  const progress = Math.min(1,gameTime/LEVEL_DURATION);
+  const difficulty = (level-1)*.12 + progress*.9;
+
+  const toughChance = Math.min(.75,.12+difficulty*.22);
+  const tough = Math.random() < toughChance;
 
   enemies.push({
     x:25+Math.random()*(W-50),
     y:-30,
     radius:tough?20:15,
-    hp:tough?2+Math.floor(level/3):1,
-    speed:(tough?95:125)+level*7+Math.random()*35,
+    hp:tough
+      ? 2+Math.floor(difficulty*1.5)
+      : 1+Math.floor(difficulty*.45),
+    speed:(tough?100:125)+difficulty*32+Math.random()*35,
     points:tough?150:75,
     reward:tough?20:10,
     phase:Math.random()*6,
@@ -855,6 +933,8 @@ function spawnEnemy() {
     dead:false
   });
 }
+
+/* PLAYER DAMAGE */
 
 function loseLife() {
   if (invincible > 0) return;
@@ -876,6 +956,8 @@ function loseLife() {
   if (lives <= 0) endRun();
 }
 
+/* PARTICLES */
+
 function createParticles(x,y,n) {
   for (let i=0;i<n;i++) {
     const a = Math.random()*Math.PI*2;
@@ -889,6 +971,8 @@ function createParticles(x,y,n) {
     });
   }
 }
+
+/* DRAW SHIP */
 
 function drawShip() {
   const weapon = getItem(save.equipped.weapon);
@@ -1011,6 +1095,8 @@ function drawShip() {
   ctx.restore();
 }
 
+/* DRAW GAME */
+
 function draw() {
   ctx.clearRect(0,0,W,H);
 
@@ -1085,11 +1171,25 @@ function draw() {
   ctx.shadowBlur = 0;
 }
 
+/* HUD */
+
 function updateHUD() {
-  if ($("score")) $("score").textContent = score.toLocaleString();
-  if ($("levelHud")) $("levelHud").textContent = level;
+  if ($("score")) {
+    $("score").textContent = score.toLocaleString();
+  }
+
+  if ($("levelHud")) {
+    const remaining = Math.max(0,LEVEL_DURATION-gameTime);
+    const minutes = Math.floor(remaining/60);
+    const seconds = Math.floor(remaining%60);
+
+    $("levelHud").textContent =
+      `LEVEL ${level} · ${minutes}:${String(seconds).padStart(2,"0")}`;
+  }
+
   if ($("lives")) {
-    $("lives").textContent = lives+(shieldCharges>0?` + ${shieldCharges} 🛡️`:"");
+    $("lives").textContent =
+      lives+(shieldCharges>0?` + ${shieldCharges} 🛡️`:"");
   }
 }
 
@@ -1213,7 +1313,7 @@ function renderHangar() {
       <div class="equipment-slot">
         <strong>WEAPON</strong>
         <div>${i.icon} ${i.name}</div>
-        <small class="rarity-${i.rarity}">${rarityNames[i.rarity]}</small>
+        <small class="rarity-dot rarity-${i.rarity}" aria-label="Rarity"></small>
       </div>
     `;
   }
@@ -1228,7 +1328,7 @@ function renderHangar() {
           <div class="equipment-slot">
             <strong>${label.toUpperCase()}</strong>
             <div>${i.icon} ${i.name}</div>
-            <small class="rarity-${i.rarity}">${rarityNames[i.rarity]}</small>
+            <small class="rarity-dot rarity-${i.rarity}" aria-label="Rarity"></small>
           </div>
         `;
       }).join("");
@@ -1264,8 +1364,8 @@ function renderInventory() {
 
     name.textContent = i.name;
 
-    rarity.className = `rarity-${i.rarity}`;
-    rarity.textContent = rarityNames[i.rarity];
+    rarity.className = `rarity-dot rarity-${i.rarity}`;
+    rarity.textContent = "";
 
     desc.textContent = i.description;
     desc.style.fontSize = "12px";
@@ -1389,8 +1489,8 @@ function renderCollection() {
       name.textContent = item.name;
 
       const rarity = document.createElement("p");
-      rarity.className = `rarity-${item.rarity}`;
-      rarity.textContent = rarityNames[item.rarity];
+      rarity.className = `rarity-dot rarity-${item.rarity}`;
+      rarity.textContent = "";
 
       const description = document.createElement("p");
       description.textContent = item.description;
@@ -1405,8 +1505,8 @@ function renderCollection() {
       name.textContent = "???";
 
       const rarity = document.createElement("p");
-      rarity.className = `rarity-${item.rarity}`;
-      rarity.textContent = rarityNames[item.rarity];
+      rarity.className = `rarity-dot rarity-${item.rarity}`;
+      rarity.textContent = "";
 
       const description = document.createElement("p");
       description.textContent = "Undiscovered item";
@@ -1415,6 +1515,59 @@ function renderCollection() {
     }
 
     grid.appendChild(card);
+  });
+}
+
+/* INBOX DATA */
+
+function addToInbox(item) {
+  if (!Array.isArray(save.inbox)) {
+    save.inbox = [];
+  }
+
+  save.inbox.unshift({
+    id:item.id,
+    receivedAt:Date.now()
+  });
+
+  // Bewaar maximaal 100 recente items.
+  save.inbox = save.inbox.slice(0,100);
+}
+
+function renderInbox() {
+  const inbox = $("inbox");
+  if (!inbox) return;
+
+  inbox.innerHTML = "";
+
+  if (!save.inbox.length) {
+    inbox.textContent = "Your inbox is empty.";
+    return;
+  }
+
+  save.inbox.forEach(entry => {
+    const id = typeof entry === "string" ? entry : entry.id;
+    const item = items[id];
+    if (!item) return;
+
+    const card = document.createElement("div");
+    card.className = "item-card";
+
+    const icon = document.createElement("div");
+    icon.className = "item-icon";
+    icon.textContent = item.icon;
+
+    const name = document.createElement("strong");
+    name.textContent = item.name;
+
+    const rarity = document.createElement("p");
+    rarity.className = `rarity-dot rarity-${item.rarity}`;
+
+    const type = document.createElement("p");
+    type.textContent = categoryNames[item.type];
+
+    card.append(icon,name,rarity,type);
+    inbox.appendChild(card);
   });
 }
 
@@ -1625,7 +1778,7 @@ function installPackAnimation() {
 
   document.body.appendChild(o);
 
-  $("packSkipButton").addEventListener("click", () => {
+  $("packSkipButton").addEventListener("click",() => {
     if (!packOpening || !packSkipResolver) return;
 
     packSkipRequested = true;
@@ -1669,12 +1822,10 @@ function showPackStage(rarity,titleText,description) {
 
   overlay.className = "active tier-"+rarity;
 
-  // Iedere zeldzaamheid krijgt direct haar eigen kleur.
   overlay.style.setProperty("--pack-color",rarityColors[rarity] || "#ffffff");
 
   title.textContent = titleText;
   text.textContent = description;
-
   title.style.color = rarityColors[rarity] || "#60f4ff";
 
   pack.className = "animated-pack";
@@ -1715,12 +1866,11 @@ async function openPack(elite=false,minimumRarity="common") {
 
   showPackStage(
     rarity,
-    "OPENING "+rarityNames[rarity].toUpperCase()+" PACK...",
+    "OPENING PACK...",
     "Something special is waiting inside."
   );
 
   overlay.classList.add("active");
-
   pack.textContent = "🎁";
 
   if (skip) {
@@ -1731,27 +1881,27 @@ async function openPack(elite=false,minimumRarity="common") {
     await waitForPackStage(900,false);
 
     pack.classList.add("pack-opening");
-    title.textContent = "LEGENDARY ENERGY...";
+    title.textContent = "GOLDEN ENERGY...";
     text.textContent = "A golden light is building.";
 
     await waitForPackStage(1200,false);
 
     overlay.classList.add("pack-flash");
     title.textContent = "GOLDEN REVEAL";
-    text.textContent = "A legendary item has appeared!";
+    text.textContent = "A special item has appeared!";
 
     await waitForPackStage(1100,false);
   } else if (rarity === "mythic") {
     await waitForPackStage(1100,false);
 
     pack.classList.add("pack-opening");
-    title.textContent = "MYTHIC ENERGY...";
+    title.textContent = "VIOLET ENERGY...";
     text.textContent = "The space around the pack is changing.";
 
     await waitForPackStage(1500,false);
 
     overlay.classList.add("pack-flash");
-    title.textContent = "MYTHIC AWAKENING";
+    title.textContent = "VIOLET AWAKENING";
     text.textContent = "An extraordinary item is being revealed!";
 
     await waitForPackStage(1500,false);
@@ -1759,19 +1909,19 @@ async function openPack(elite=false,minimumRarity="common") {
     await waitForPackStage(1400,false);
 
     pack.classList.add("pack-opening");
-    title.textContent = "DIVINE POWER...";
+    title.textContent = "WHITE-GOLD ENERGY...";
     text.textContent = "An incredible energy is gathering.";
 
     await waitForPackStage(1800,false);
 
     overlay.classList.add("pack-flash");
-    title.textContent = "DIVINE AWAKENING";
-    text.textContent = "The rarest level of equipment...";
+    title.textContent = "ULTIMATE AWAKENING";
+    text.textContent = "A powerful item is being revealed...";
 
     await waitForPackStage(1700,false);
 
     title.textContent = "ULTIMATE REVEAL";
-    text.textContent = "A Divine item has arrived.";
+    text.textContent = "The rarest equipment has arrived.";
 
     await waitForPackStage(1300,false);
   } else {
@@ -1788,6 +1938,7 @@ async function openPack(elite=false,minimumRarity="common") {
 
   if (!save.inventory.includes(item.id)) {
     save.inventory.push(item.id);
+    addToInbox(item);
   } else {
     save.credits += bonus;
   }
@@ -1803,8 +1954,8 @@ async function openPack(elite=false,minimumRarity="common") {
   title.style.color = rarityColors[rarity];
 
   text.textContent = duplicate
-    ? `${rarityNames[rarity]} · DUPLICATE · +${bonus} CREDITS`
-    : `${rarityNames[rarity]} · ${categoryNames[item.type]}`;
+    ? `DUPLICATE · +${bonus} CREDITS`
+    : categoryNames[item.type];
 
   if (skip) skip.style.display = "none";
 
@@ -1821,11 +1972,8 @@ async function openPack(elite=false,minimumRarity="common") {
   if ($("packItemName")) $("packItemName").textContent = item.name;
 
   if ($("packRarity")) {
-    $("packRarity").textContent = duplicate
-      ? `${rarityNames[rarity]} · DUPLICATE BONUS`
-      : rarityNames[rarity];
-
-    $("packRarity").className = `rarity-${rarity}`;
+    $("packRarity").textContent = "";
+    $("packRarity").className = `rarity-dot rarity-${rarity}`;
   }
 
   if ($("packItemDesc")) {
@@ -1849,20 +1997,20 @@ function randomItem(elite=false,minimumRarity="common") {
   let rarity;
 
   if (elite) {
-    if (roll<8) rarity="common";
-    else if (roll<20) rarity="uncommon";
-    else if (roll<40) rarity="rare";
-    else if (roll<62) rarity="epic";
-    else if (roll<80) rarity="legendary";
-    else if (roll<91) rarity="mythic";
+    if (roll<30) rarity="common";
+    else if (roll<55) rarity="uncommon";
+    else if (roll<75) rarity="rare";
+    else if (roll<88) rarity="epic";
+    else if (roll<95) rarity="legendary";
+    else if (roll<99) rarity="mythic";
     else rarity="divine";
   } else {
-    if (roll<38) rarity="common";
-    else if (roll<60) rarity="uncommon";
-    else if (roll<77) rarity="rare";
-    else if (roll<89) rarity="epic";
-    else if (roll<96) rarity="legendary";
-    else if (roll<98.5) rarity="mythic";
+    if (roll<55) rarity="common";
+    else if (roll<79) rarity="uncommon";
+    else if (roll<91) rarity="rare";
+    else if (roll<97) rarity="epic";
+    else if (roll<99) rarity="legendary";
+    else if (roll<99.8) rarity="mythic";
     else rarity="divine";
   }
 
@@ -2031,6 +2179,7 @@ function updateAllUI() {
   renderHangar();
   renderUpgrades();
   renderCollection();
+  renderInbox();
   updateDailyButton();
   updatePackButtons();
   updateHUD();
