@@ -1,740 +1,722 @@
 
 (() => {
-"use strict";
+  "use strict";
 
-const $ = id => document.getElementById(id);
-const canvas = $("game");
-const ctx = canvas.getContext("2d");
+  const $ = id => document.getElementById(id);
+  const canvas = $("game");
+  const ctx = canvas.getContext("2d");
 
-const SAVE_KEY = "neonDriftAfterburn_v1";
-const defaults = {
-  credits: 0,
-  best: 0,
-  runs: 0,
-  upgrades: { hull: 0, engine: 0, magnet: 0 }
-};
+  const W = 420, H = 700;
+  const SAVE_KEY = "neonDriftSpaceArcade_v1";
 
-let save;
-
-try {
-  save = { ...defaults, ...JSON.parse(localStorage.getItem(SAVE_KEY) || "{}") };
-  save.upgrades = { ...defaults.upgrades, ...(save.upgrades || {}) };
-} catch {
-  save = structuredClone(defaults);
-}
-
-const upgradeInfo = [
-  {
-    id: "hull",
-    name: "REINFORCED HULL",
-    desc: "Start every run with an extra life.",
-    base: 90,
-    max: 3
-  },
-  {
-    id: "engine",
-    name: "ION ENGINE",
-    desc: "Move faster and control your ship more easily.",
-    base: 70,
-    max: 4
-  },
-  {
-    id: "magnet",
-    name: "CREDIT MAGNET",
-    desc: "Collect credits from a greater distance.",
-    base: 100,
-    max: 3
-  }
-];
-
-let player, rocks = [], orbs = [], powerups = [], particles = [];
-let score = 0, lives = 3, runCredits = 0;
-let frame = 0, raf = 0, active = false, paused = false;
-let shield = 0, slow = 0, keys = {}, lastTime = 0;
-let level = 1, nextRock = 0, nextOrb = 0, nextPowerup = 0;
-let levelToast = 0;
-
-const WIDTH = 360;
-const HEIGHT = 600;
-const LEVEL_LENGTH = 1500;
-
-function persist() {
-  localStorage.setItem(SAVE_KEY, JSON.stringify(save));
-  updateMeta();
-}
-
-function updateMeta() {
-  $("bank").textContent = save.credits;
-  $("shopBank").textContent = save.credits;
-  $("bestHome").textContent = save.best;
-  $("runsHome").textContent = save.runs;
-  $("levelHome").textContent = 1 + save.upgrades.hull + save.upgrades.engine + save.upgrades.magnet;
-  $("bestHud").textContent = save.best;
-}
-
-function showScreen(id) {
-  document.querySelectorAll(".screen").forEach(s => {
-    s.classList.toggle("active", s.id === id);
-  });
-}
-
-document.querySelectorAll("[data-screen]").forEach(button => {
-  button.addEventListener("click", () => {
-    showScreen(button.dataset.screen);
-    if (button.dataset.screen === "shop") renderShop();
-  });
-});
-
-function renderShop() {
-  $("shopBank").textContent = save.credits;
-  $("upgradeList").innerHTML = "";
-
-  upgradeInfo.forEach(u => {
-    const lvl = save.upgrades[u.id];
-    const cost = u.base * (lvl + 1);
-
-    const el = document.createElement("article");
-    el.className = "upgrade";
-
-    el.innerHTML = `
-      <div class="upgrade-head">
-        <h3>${u.name}</h3>
-        <span class="level">LVL ${lvl}/${u.max}</span>
-      </div>
-      <p>${u.desc}</p>
-      <div class="upgrade-foot">
-        <span class="level">
-          ${lvl === u.max ? "MAX LEVEL" : "◆ " + cost + " CREDITS"}
-        </span>
-        <button class="buy" ${lvl >= u.max || save.credits < cost ? "disabled" : ""}>
-          ${lvl === u.max ? "MAXED" : "UPGRADE"}
-        </button>
-      </div>
-    `;
-
-    el.querySelector("button").addEventListener("click", () => {
-      if (lvl >= u.max || save.credits < cost) return;
-
-      save.credits -= cost;
-      save.upgrades[u.id]++;
-      persist();
-      renderShop();
-    });
-
-    $("upgradeList").appendChild(el);
-  });
-}
-
-// Create a level display without requiring extra HTML changes.
-function createLevelDisplay() {
-  const hud = document.querySelector(".hud");
-  if (!hud || $("levelDisplay")) return;
-
-  const item = document.createElement("div");
-  item.className = "hud-item";
-  item.id = "levelDisplay";
-
-  item.innerHTML = `
-    <div class="hud-label">LEVEL</div>
-    <div class="hud-value" id="levelValue">1</div>
-    <div id="levelProgress" style="
-      height:4px;
-      background:#26334b;
-      margin-top:7px;
-      border-radius:5px;
-      overflow:hidden;">
-      <div id="levelBar" style="
-        height:100%;
-        width:0%;
-        background:#00eaff;
-        box-shadow:0 0 10px #00eaff;">
-      </div>
-    </div>
-  `;
-
-  hud.appendChild(item);
-}
-
-function updateLevelDisplay() {
-  if (!$("levelValue")) return;
-
-  $("levelValue").textContent = level;
-
-  const progress = (score % LEVEL_LENGTH) / LEVEL_LENGTH * 100;
-  $("levelBar").style.width = progress + "%";
-}
-
-function startRun() {
-  cancelAnimationFrame(raf);
-  showScreen("gameScreen");
-
-  player = {
-    x: 165,
-    y: 520,
-    w: 30,
-    h: 36,
-    speed: 5.5 + save.upgrades.engine * 0.65
+  const defaults = {
+    credits: 0,
+    best: 0,
+    runs: 0,
+    upgrades: { shield: 0, engine: 0, magnet: 0, extra: 0 }
   };
 
-  rocks = [];
-  orbs = [];
-  powerups = [];
-  particles = [];
+  let save;
+  try {
+    save = { ...defaults, ...JSON.parse(localStorage.getItem(SAVE_KEY) || "{}") };
+    save.upgrades = { ...defaults.upgrades, ...(save.upgrades || {}) };
+  } catch {
+    save = structuredClone(defaults);
+  }
 
-  score = 0;
-  runCredits = 0;
-  lives = 3 + save.upgrades.hull;
+  function persist() {
+    localStorage.setItem(SAVE_KEY, JSON.stringify(save));
+    updateMenus();
+  }
 
-  shield = 0;
-  slow = 0;
-  frame = 0;
-  level = 1;
+  const upgradeData = [
+    { id: "shield", name: "SHIELD CORE", icon: "◉", description: "Start each mission with extra protection.", max: 5, base: 100 },
+    { id: "engine", name: "ION ENGINE", icon: "✦", description: "Increase your ship's movement speed.", max: 5, base: 90 },
+    { id: "magnet", name: "CREDIT MAGNET", icon: "◎", description: "Collect energy crystals from further away.", max: 5, base: 120 },
+    { id: "extra", name: "HULL ARMOR", icon: "⬡", description: "Begin missions with an extra life.", max: 3, base: 180 }
+  ];
 
-  nextRock = 70;
-  nextOrb = 100;
-  nextPowerup = 700;
+  let state = "home";
+  let score = 0;
+  let earned = 0;
+  let level = 1;
+  let lives = 3;
+  let player;
+  let objects = [];
+  let particles = [];
+  let stars = [];
+  let elapsed = 0;
+  let spawnTimer = 0;
+  let shake = 0;
+  let lastTime = 0;
+  let pointerDown = false;
+  let targetX = W / 2;
+  let invincible = 0;
+  let shieldTime = 0;
+  let slowTime = 0;
+  let toast = "";
+  let toastTime = 0;
+  let audioContext = null;
 
-  levelToast = 0;
-  active = true;
-  paused = false;
-  lastTime = 0;
+  function sound(frequency = 500, duration = .08, type = "sine") {
+    try {
+      audioContext ||= new (window.AudioContext || window.webkitAudioContext)();
+      const osc = audioContext.createOscillator();
+      const gain = audioContext.createGain();
+      osc.type = type;
+      osc.frequency.value = frequency;
+      gain.gain.setValueAtTime(.045, audioContext.currentTime);
+      gain.gain.exponentialRampToValueAtTime(.001, audioContext.currentTime + duration);
+      osc.connect(gain);
+      gain.connect(audioContext.destination);
+      osc.start();
+      osc.stop(audioContext.currentTime + duration);
+    } catch {}
+  }
 
-  $("score").textContent = "0";
-  $("lives").textContent = "♥".repeat(lives);
-  $("overlay").classList.add("hidden");
+  function updateMenus() {
+    $("bank").textContent = save.credits;
+    $("shopBank").textContent = save.credits;
+    $("bestHome").textContent = save.best;
+    $("bestHud").textContent = save.best;
+    $("runsHome").textContent = save.runs;
+    $("levelHome").textContent = Math.max(1, Math.floor(save.best / 1500) + 1);
+    renderShop();
+  }
 
-  createLevelDisplay();
-  updateLevelDisplay();
+  function showScreen(id) {
+    document.querySelectorAll(".screen").forEach(s => s.classList.remove("active"));
+    $(id).classList.add("active");
+    state = id === "gameScreen" ? "playing" : id;
+    updateMenus();
+  }
 
-  raf = requestAnimationFrame(loop);
-}
+  function renderShop() {
+    const list = $("upgradeList");
+    if (!list) return;
+    list.innerHTML = "";
 
-function endRun() {
-  active = false;
-  cancelAnimationFrame(raf);
+    upgradeData.forEach(item => {
+      const current = save.upgrades[item.id] || 0;
+      const cost = Math.floor(item.base * Math.pow(1.75, current));
+      const maxed = current >= item.max;
 
-  const earned = runCredits + Math.floor(score / 100);
+      const card = document.createElement("div");
+      card.className = "upgrade-card";
 
-  save.credits += earned;
-  save.runs++;
-  save.best = Math.max(save.best, score);
+      const top = document.createElement("div");
+      top.className = "upgrade-top";
 
-  persist();
+      const name = document.createElement("div");
+      name.innerHTML = `<span class="upgrade-icon">${item.icon}</span><span class="upgrade-name">${item.name}</span>`;
 
-  $("finalScore").textContent = score;
-  $("earned").textContent = earned;
-  $("bestResult").textContent = save.best;
+      const levelText = document.createElement("span");
+      levelText.className = "upgrade-level";
+      levelText.textContent = `LVL ${current}/${item.max}`;
 
-  showScreen("result");
-}
+      top.append(name, levelText);
 
-function levelUp() {
-  level++;
+      const description = document.createElement("p");
+      description.className = "upgrade-description";
+      description.textContent = item.description;
 
-  const bonus = 25 + level * 10;
-  runCredits += bonus;
-  levelToast = 150;
+      const bars = document.createElement("div");
+      bars.className = "level-bars";
+      for (let i = 0; i < item.max; i++) {
+        const bar = document.createElement("i");
+        if (i < current) bar.className = "filled";
+        bars.appendChild(bar);
+      }
 
-  burst(WIDTH / 2, HEIGHT / 2, "#00eaff", 35);
+      const bottom = document.createElement("div");
+      bottom.className = "upgrade-bottom";
 
-  updateLevelDisplay();
-}
+      const price = document.createElement("span");
+      price.className = "upgrade-level";
+      price.textContent = maxed ? "FULLY UPGRADED" : `◈ ${cost}`;
 
-function getDifficulty() {
-  return Math.min(1, (level - 1) / 15);
-}
+      const button = document.createElement("button");
+      button.className = "buy-btn";
+      button.textContent = maxed ? "MAXED" : "UPGRADE";
+      button.disabled = maxed || save.credits < cost;
 
-function spawnRock() {
-  const difficulty = getDifficulty();
+      button.addEventListener("click", () => {
+        if (maxed || save.credits < cost) return;
+        save.credits -= cost;
+        save.upgrades[item.id]++;
+        sound(700, .12);
+        persist();
+      });
 
-  const size = 20 + Math.random() * 19;
-  const speed = Math.min(
-    4.5,
-    2.1 + difficulty * 1.7 + Math.random() * 0.6
-  );
-
-  rocks.push({
-    x: 10 + Math.random() * (WIDTH - size - 20),
-    y: -size,
-    size,
-    speed,
-    rot: Math.random() * 6,
-    rotationSpeed: (Math.random() - 0.5) * 0.035,
-    type: Math.random() < 0.5 ? "rock" : "diamond"
-  });
-}
-
-function spawnOrb() {
-  orbs.push({
-    x: 18 + Math.random() * (WIDTH - 36),
-    y: -15,
-    r: 8,
-    speed: 2.2 + getDifficulty() * 0.3
-  });
-}
-
-function spawnPowerup() {
-  powerups.push({
-    x: 22 + Math.random() * (WIDTH - 44),
-    y: -20,
-    r: 12,
-    type: Math.random() < 0.5 ? "shield" : "slow",
-    speed: 2.1
-  });
-}
-
-function hit(a, b, pad = 0) {
-  return (
-    a.x + pad < b.x + b.size &&
-    a.x + a.w - pad > b.x &&
-    a.y + pad < b.y + b.size &&
-    a.y + a.h - pad > b.y
-  );
-}
-
-function burst(x, y, color, count = 10) {
-  for (let i = 0; i < count; i++) {
-    particles.push({
-      x,
-      y,
-      vx: (Math.random() - 0.5) * 5,
-      vy: (Math.random() - 0.5) * 5,
-      life: 25 + Math.random() * 20,
-      color
+      bottom.append(price, button);
+      card.append(top, description, bars, bottom);
+      list.appendChild(card);
     });
   }
-}
 
-function drawBackground() {
-  const gradient = ctx.createLinearGradient(0, 0, 0, HEIGHT);
-  gradient.addColorStop(0, "#080e22");
-  gradient.addColorStop(1, "#050711");
-
-  ctx.fillStyle = gradient;
-  ctx.fillRect(0, 0, WIDTH, HEIGHT);
-
-  // Moving stars
-  for (let i = 0; i < 55; i++) {
-    const y = (i * 83 + frame * (1 + i % 3) * 0.35) % HEIGHT;
-    const x = (i * 67) % WIDTH;
-
-    ctx.fillStyle = i % 4 === 0
-      ? "rgba(0,234,255,.8)"
-      : "rgba(130,155,210,.45)";
-
-    ctx.fillRect(x, y, 2, 2);
+  function newStars() {
+    stars = Array.from({ length: 115 }, () => ({
+      x: Math.random() * W,
+      y: Math.random() * H,
+      size: Math.random() * 1.8 + .3,
+      speed: Math.random() * 65 + 20,
+      alpha: Math.random() * .65 + .2
+    }));
   }
 
-  // Neon grid
-  ctx.strokeStyle = "rgba(0,234,255,.07)";
-  ctx.lineWidth = 1;
-
-  for (let x = 0; x < WIDTH; x += 45) {
-    ctx.beginPath();
-    ctx.moveTo(x, 0);
-    ctx.lineTo(x, HEIGHT);
-    ctx.stroke();
+  function startRun() {
+    score = 0;
+    earned = 0;
+    level = 1;
+    elapsed = 0;
+    spawnTimer = 0;
+    objects = [];
+    particles = [];
+    shake = 0;
+    invincible = 1.5;
+    shieldTime = 0;
+    slowTime = 0;
+    lives = 3 + save.upgrades.extra;
+    player = {
+      x: W / 2,
+      y: H - 105,
+      width: 30,
+      height: 42,
+      speed: 310 + save.upgrades.engine * 35
+    };
+    targetX = player.x;
+    save.runs++;
+    persist();
+    $("score").textContent = "0";
+    $("lives").textContent = "♥".repeat(lives);
+    $("overlay").classList.add("hidden");
+    showScreen("gameScreen");
+    sound(400, .15);
+    lastTime = performance.now();
   }
 
-  for (let y = (frame * 1.1) % 45; y < HEIGHT; y += 45) {
-    ctx.beginPath();
-    ctx.moveTo(0, y);
-    ctx.lineTo(WIDTH, y);
-    ctx.stroke();
+  function difficulty() {
+    return {
+      speed: Math.min(430, 155 + level * 20),
+      interval: Math.max(.32, .95 - level * .045)
+    };
   }
 
-  // Side borders
-  ctx.fillStyle = "rgba(0,234,255,.5)";
-  ctx.fillRect(3, 0, 1, HEIGHT);
-  ctx.fillRect(WIDTH - 4, 0, 1, HEIGHT);
-}
+  function spawnObject() {
+    const roll = Math.random();
+    const x = 25 + Math.random() * (W - 50);
+    const d = difficulty();
 
-function drawShip() {
-  ctx.save();
-
-  ctx.translate(player.x + 15, player.y + 18);
-
-  // Engine glow
-  ctx.shadowBlur = 20;
-  ctx.shadowColor = "#00eaff";
-  ctx.fillStyle = "#4385ff";
-
-  ctx.beginPath();
-  ctx.moveTo(-5, 12);
-  ctx.lineTo(0, 25 + Math.random() * 5);
-  ctx.lineTo(5, 12);
-  ctx.fill();
-
-  // Ship body
-  const gradient = ctx.createLinearGradient(0, -18, 0, 18);
-  gradient.addColorStop(0, "#ffffff");
-  gradient.addColorStop(0.45, "#00eaff");
-  gradient.addColorStop(1, "#4385ff");
-
-  ctx.fillStyle = gradient;
-  ctx.shadowBlur = 18;
-  ctx.shadowColor = "#00eaff";
-
-  ctx.beginPath();
-  ctx.moveTo(0, -18);
-  ctx.lineTo(14, 17);
-  ctx.lineTo(0, 10);
-  ctx.lineTo(-14, 17);
-  ctx.closePath();
-  ctx.fill();
-
-  ctx.fillStyle = "#ffffff";
-  ctx.fillRect(-2, -4, 4, 10);
-
-  if (shield > 0) {
-    ctx.strokeStyle = "#00eaff";
-    ctx.lineWidth = 2;
-    ctx.shadowBlur = 20;
-
-    ctx.beginPath();
-    ctx.arc(0, 0, 25, 0, Math.PI * 2);
-    ctx.stroke();
+    if (roll < .48) {
+      objects.push({
+        type: "rock", x, y: -35,
+        radius: 13 + Math.random() * 14,
+        speed: d.speed * (.8 + Math.random() * .5),
+        rotation: Math.random() * 6,
+        spin: (Math.random() - .5) * 2,
+        sides: 7 + Math.floor(Math.random() * 4)
+      });
+    } else if (roll < .69) {
+      objects.push({
+        type: "crystal", x, y: -25,
+        radius: 11, speed: d.speed * .75
+      });
+    } else if (roll < .83) {
+      objects.push({
+        type: "drone", x, y: -35,
+        radius: 17, speed: d.speed * .9,
+        phase: Math.random() * 6
+      });
+    } else if (roll < .92) {
+      objects.push({
+        type: "shield", x, y: -25,
+        radius: 13, speed: d.speed * .7
+      });
+    } else {
+      objects.push({
+        type: "slow", x, y: -25,
+        radius: 13, speed: d.speed * .7
+      });
+    }
   }
 
-  ctx.restore();
-}
-
-function drawRock(o) {
-  ctx.save();
-
-  ctx.translate(o.x + o.size / 2, o.y + o.size / 2);
-  ctx.rotate(o.rot);
-
-  ctx.shadowBlur = 15;
-  ctx.shadowColor = "#ff3d9a";
-
-  const gradient = ctx.createLinearGradient(
-    -o.size / 2,
-    -o.size / 2,
-    o.size / 2,
-    o.size / 2
-  );
-
-  gradient.addColorStop(0, "#ff8acb");
-  gradient.addColorStop(1, "#a71978");
-
-  ctx.fillStyle = gradient;
-
-  if (o.type === "diamond") {
-    ctx.beginPath();
-    ctx.moveTo(0, -o.size / 2);
-    ctx.lineTo(o.size / 2, 0);
-    ctx.lineTo(0, o.size / 2);
-    ctx.lineTo(-o.size / 2, 0);
-    ctx.closePath();
-    ctx.fill();
-  } else {
-    ctx.beginPath();
-    ctx.roundRect(
-      -o.size / 2,
-      -o.size / 2,
-      o.size,
-      o.size,
-      5
-    );
-    ctx.fill();
+  function burst(x, y, color, amount = 14) {
+    for (let i = 0; i < amount; i++) {
+      const angle = Math.random() * Math.PI * 2;
+      const speed = 45 + Math.random() * 180;
+      particles.push({
+        x, y,
+        vx: Math.cos(angle) * speed,
+        vy: Math.sin(angle) * speed,
+        life: .35 + Math.random() * .55,
+        max: .9,
+        size: 2 + Math.random() * 4,
+        color
+      });
+    }
   }
 
-  ctx.restore();
-}
-
-function moveTo(e) {
-  if (!active || paused) return;
-
-  const rect = canvas.getBoundingClientRect();
-
-  player.x = Math.max(
-    0,
-    Math.min(
-      WIDTH - player.w,
-      (e.clientX - rect.left) * WIDTH / rect.width - player.w / 2
-    )
-  );
-}
-
-function loop(t) {
-  if (!active || paused) return;
-
-  const dt = lastTime
-    ? Math.min(2, (t - lastTime) / 16.67)
-    : 1;
-
-  lastTime = t;
-  frame += dt;
-
-  drawBackground();
-
-  // Level progression
-  const newLevel = Math.floor(score / LEVEL_LENGTH) + 1;
-
-  if (newLevel > level) {
-    levelUp();
+  function collect(obj) {
+    if (obj.type === "crystal") {
+      earned += 10;
+      score += 100;
+      burst(obj.x, obj.y, "#48eaff", 10);
+      sound(850, .1);
+    } else if (obj.type === "shield") {
+      shieldTime = 6;
+      burst(obj.x, obj.y, "#55ffb8", 18);
+      sound(600, .18);
+    } else if (obj.type === "slow") {
+      slowTime = 5;
+      burst(obj.x, obj.y, "#b18aff", 18);
+      sound(450, .18);
+    }
+    objects.splice(objects.indexOf(obj), 1);
   }
 
-  const difficulty = getDifficulty();
+  function damage(obj) {
+    if (invincible > 0) return;
+    if (shieldTime > 0) {
+      shieldTime = 0;
+      burst(obj.x, obj.y, "#55ffb8", 20);
+      objects.splice(objects.indexOf(obj), 1);
+      sound(300, .2);
+      return;
+    }
 
-  // Gradually reduce time between spawns.
-  const rockInterval = Math.max(48, 105 - (level - 1) * 3.5);
-  const orbInterval = Math.max(75, 115 - (level - 1) * 1.2);
+    lives--;
+    invincible = 1.5;
+    shake = 12;
+    burst(player.x, player.y, "#ff4f9a", 22);
+    sound(120, .25, "sawtooth");
+    objects.splice(objects.indexOf(obj), 1);
+    $("lives").textContent = "♥".repeat(Math.max(0, lives));
 
-  nextRock -= dt;
-  nextOrb -= dt;
-  nextPowerup -= dt;
-
-  if (nextRock <= 0) {
-    spawnRock();
-    nextRock = rockInterval * (0.85 + Math.random() * 0.3);
+    if (lives <= 0) endRun();
   }
 
-  if (nextOrb <= 0) {
-    spawnOrb();
-    nextOrb = orbInterval * (0.8 + Math.random() * 0.4);
+  function endRun() {
+    if (state !== "playing") return;
+    state = "result";
+    save.credits += earned;
+    save.best = Math.max(save.best, score);
+    persist();
+
+    $("finalScore").textContent = score;
+    $("earned").textContent = `+${earned} ◈`;
+    $("bestResult").textContent = save.best;
+    showScreen("result");
+    sound(180, .3);
   }
 
-  if (nextPowerup <= 0) {
-    if (Math.random() < 0.65) spawnPowerup();
-    nextPowerup = 750 + Math.random() * 300;
+  function pauseGame() {
+    if (state !== "playing") return;
+    state = "paused";
+    $("overlayTag").textContent = "MISSION PAUSED";
+    $("overlayTitle").textContent = "PAUSED";
+    $("overlayText").textContent = "Your mission is on hold.";
+    $("resumeBtn").textContent = "RESUME";
+    $("overlay").classList.remove("hidden");
   }
 
-  // Keyboard controls
-  if (keys.ArrowLeft || keys.a || keys.A) {
-    player.x -= player.speed * dt;
+  function resumeGame() {
+    if (state !== "paused") return;
+    $("overlay").classList.add("hidden");
+    state = "playing";
+    lastTime = performance.now();
   }
 
-  if (keys.ArrowRight || keys.d || keys.D) {
-    player.x += player.speed * dt;
+  function quitGame() {
+    if (state !== "paused") return;
+    save.credits += earned;
+    save.best = Math.max(save.best, score);
+    persist();
+    showScreen("home");
   }
 
-  player.x = Math.max(0, Math.min(WIDTH - player.w, player.x));
+  function drawBackground(dt) {
+    const gradient = ctx.createLinearGradient(0, 0, 0, H);
+    gradient.addColorStop(0, "#090d26");
+    gradient.addColorStop(.55, "#10102c");
+    gradient.addColorStop(1, "#070b1c");
+    ctx.fillStyle = gradient;
+    ctx.fillRect(0, 0, W, H);
 
-  drawShip();
-
-  // Obstacles
-  for (let i = rocks.length - 1; i >= 0; i--) {
-    const o = rocks[i];
-
-    o.y += o.speed * (slow > 0 ? 0.55 : 1) * dt;
-    o.rot += o.rotationSpeed * dt;
-
-    drawRock(o);
-
-    if (hit(player, {
-      x: o.x,
-      y: o.y,
-      size: o.size
-    }, 7)) {
-      rocks.splice(i, 1);
-
-      if (shield > 0) {
-        shield = 0;
-        burst(player.x + 15, player.y + 15, "#00eaff", 18);
-      } else {
-        lives--;
-        burst(player.x + 15, player.y + 15, "#ff3d9a", 16);
-
-        $("lives").textContent = "♥".repeat(Math.max(0, lives));
-
-        if (lives <= 0) {
-          endRun();
-          return;
-        }
+    stars.forEach(star => {
+      star.y += star.speed * dt;
+      if (star.y > H) {
+        star.y = 0;
+        star.x = Math.random() * W;
       }
-    } else if (o.y > HEIGHT + 30) {
-      rocks.splice(i, 1);
-    }
-  }
-
-  // Credits
-  for (let i = orbs.length - 1; i >= 0; i--) {
-    const c = orbs[i];
-
-    c.y += c.speed * dt;
-
-    ctx.save();
-    ctx.shadowBlur = 18;
-    ctx.shadowColor = "#ffd166";
-    ctx.fillStyle = "#ffd166";
-
-    ctx.beginPath();
-    ctx.arc(c.x, c.y, c.r, 0, Math.PI * 2);
-    ctx.fill();
-
-    ctx.restore();
-
-    const dist = Math.hypot(
-      player.x + 15 - c.x,
-      player.y + 15 - c.y
-    );
-
-    const magnetRange = save.upgrades.magnet
-      ? 38 + save.upgrades.magnet * 18
-      : 18;
-
-    if (dist < magnetRange) {
-      c.x += (player.x + 15 - c.x) * 0.12;
-      c.y += (player.y + 15 - c.y) * 0.12;
-    }
-
-    if (dist < 22) {
-      runCredits++;
-      score += 25;
-      burst(c.x, c.y, "#ffd166", 7);
-      orbs.splice(i, 1);
-    } else if (c.y > HEIGHT + 20) {
-      orbs.splice(i, 1);
-    }
-  }
-
-  // Power-ups
-  for (let i = powerups.length - 1; i >= 0; i--) {
-    const p = powerups[i];
-
-    p.y += p.speed * dt;
-
-    ctx.save();
-    ctx.fillStyle = p.type === "shield" ? "#00eaff" : "#bd8aff";
-    ctx.shadowBlur = 18;
-    ctx.shadowColor = ctx.fillStyle;
-
-    ctx.beginPath();
-    ctx.arc(p.x, p.y, p.r, 0, Math.PI * 2);
-    ctx.fill();
-
-    ctx.restore();
-
-    if (Math.hypot(player.x + 15 - p.x, player.y + 15 - p.y) < 25) {
-      if (p.type === "shield") {
-        shield = 600;
-      } else {
-        slow = 600;
-      }
-
-      burst(p.x, p.y, "#bd8aff", 12);
-      powerups.splice(i, 1);
-    } else if (p.y > HEIGHT + 20) {
-      powerups.splice(i, 1);
-    }
-  }
-
-  // Power-up timers
-  if (shield > 0) shield = Math.max(0, shield - dt);
-  if (slow > 0) slow = Math.max(0, slow - dt);
-
-  // Particles
-  for (let i = particles.length - 1; i >= 0; i--) {
-    const p = particles[i];
-
-    p.x += p.vx * dt;
-    p.y += p.vy * dt;
-    p.life -= dt;
-
-    ctx.globalAlpha = Math.max(0, p.life / 40);
-    ctx.fillStyle = p.color;
-    ctx.fillRect(p.x, p.y, 3, 3);
+      ctx.globalAlpha = star.alpha;
+      ctx.fillStyle = "#d7faff";
+      ctx.beginPath();
+      ctx.arc(star.x, star.y, star.size, 0, Math.PI * 2);
+      ctx.fill();
+    });
     ctx.globalAlpha = 1;
 
-    if (p.life <= 0) particles.splice(i, 1);
+    // Distant planet
+    ctx.save();
+    ctx.globalAlpha = .22;
+    const planetGlow = ctx.createRadialGradient(315, 185, 10, 315, 185, 105);
+    planetGlow.addColorStop(0, "#c18aff");
+    planetGlow.addColorStop(.65, "#563c9c");
+    planetGlow.addColorStop(1, "transparent");
+    ctx.fillStyle = planetGlow;
+    ctx.beginPath();
+    ctx.arc(315, 185, 105, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.restore();
+
+    // Moving space lanes
+    ctx.strokeStyle = "rgba(72,234,255,.045)";
+    ctx.lineWidth = 1;
+    for (let x = 30; x < W; x += 60) {
+      ctx.beginPath();
+      ctx.moveTo(x, 0);
+      ctx.lineTo(x, H);
+      ctx.stroke();
+    }
   }
 
-  // Level-up notification
-  if (levelToast > 0) {
-    levelToast -= dt;
+  function drawShip() {
+    if (!player) return;
+    if (invincible > 0 && Math.floor(elapsed * 12) % 2 === 0) return;
 
     ctx.save();
-    ctx.globalAlpha = Math.min(1, levelToast / 20);
-    ctx.textAlign = "center";
+    ctx.translate(player.x, player.y);
 
-    ctx.shadowBlur = 20;
-    ctx.shadowColor = "#00eaff";
-    ctx.fillStyle = "#ffffff";
-    ctx.font = "bold 27px Orbitron, sans-serif";
-    ctx.fillText("LEVEL " + level, WIDTH / 2, 150);
+    // Engine flame
+    const flame = 15 + Math.random() * 13;
+    const fire = ctx.createLinearGradient(0, 15, 0, 15 + flame);
+    fire.addColorStop(0, "#ffffff");
+    fire.addColorStop(.3, "#48eaff");
+    fire.addColorStop(1, "transparent");
+    ctx.fillStyle = fire;
+    ctx.beginPath();
+    ctx.moveTo(-8, 14);
+    ctx.lineTo(0, 14 + flame);
+    ctx.lineTo(8, 14);
+    ctx.closePath();
+    ctx.fill();
 
-    ctx.shadowBlur = 0;
-    ctx.fillStyle = "#00eaff";
-    ctx.font = "bold 13px Arial";
-    ctx.fillText("+" + (25 + level * 10) + " BONUS CREDITS", WIDTH / 2, 175);
+    // Wings
+    ctx.shadowBlur = 18;
+    ctx.shadowColor = "#48eaff";
+    ctx.fillStyle = "#297ca8";
+    ctx.beginPath();
+    ctx.moveTo(-9, -2);
+    ctx.lineTo(-26, 17);
+    ctx.lineTo(-9, 12);
+    ctx.closePath();
+    ctx.fill();
 
+    ctx.beginPath();
+    ctx.moveTo(9, -2);
+    ctx.lineTo(26, 17);
+    ctx.lineTo(9, 12);
+    ctx.closePath();
+    ctx.fill();
+
+    // Main hull
+    const hull = ctx.createLinearGradient(-15, 0, 15, 0);
+    hull.addColorStop(0, "#5e8dff");
+    hull.addColorStop(.5, "#efffff");
+    hull.addColorStop(1, "#45c9ff");
+    ctx.fillStyle = hull;
+    ctx.beginPath();
+    ctx.moveTo(0, -27);
+    ctx.lineTo(13, 12);
+    ctx.lineTo(0, 7);
+    ctx.lineTo(-13, 12);
+    ctx.closePath();
+    ctx.fill();
+
+    ctx.fillStyle = "#7bdeff";
+    ctx.beginPath();
+    ctx.ellipse(0, -6, 4, 9, 0, 0, Math.PI * 2);
+    ctx.fill();
+
+    if (shieldTime > 0) {
+      ctx.strokeStyle = "rgba(85,255,184,.9)";
+      ctx.lineWidth = 3;
+      ctx.shadowColor = "#55ffb8";
+      ctx.beginPath();
+      ctx.arc(0, 0, 34, 0, Math.PI * 2);
+      ctx.stroke();
+    }
     ctx.restore();
   }
 
-  // Score and HUD
-  score += Math.max(1, Math.floor(dt));
+  function drawRock(o) {
+    ctx.save();
+    ctx.translate(o.x, o.y);
+    ctx.rotate(o.rotation);
+    ctx.shadowBlur = 12;
+    ctx.shadowColor = "#ff5b9b";
+    ctx.fillStyle = "#65516e";
+    ctx.strokeStyle = "#d18aa9";
+    ctx.lineWidth = 2;
+    ctx.beginPath();
 
-  $("score").textContent = score;
-  updateLevelDisplay();
+    for (let i = 0; i < o.sides; i++) {
+      const a = i / o.sides * Math.PI * 2;
+      const r = o.radius * (.78 + .25 * Math.sin(i * 4.7));
+      const x = Math.cos(a) * r;
+      const y = Math.sin(a) * r;
+      if (i === 0) ctx.moveTo(x, y);
+      else ctx.lineTo(x, y);
+    }
+    ctx.closePath();
+    ctx.fill();
+    ctx.stroke();
 
-  raf = requestAnimationFrame(loop);
-}
-
-function pause() {
-  if (!active) return;
-
-  paused = true;
-  cancelAnimationFrame(raf);
-
-  $("overlayTag").textContent = "PAUSED";
-  $("overlayTitle").textContent = "RUN PAUSED";
-  $("overlayText").textContent = "Your run is temporarily paused.";
-  $("resumeBtn").textContent = "RESUME";
-
-  $("overlay").classList.remove("hidden");
-}
-
-function resume() {
-  if (!active) return;
-
-  paused = false;
-  $("overlay").classList.add("hidden");
-
-  lastTime = 0;
-  raf = requestAnimationFrame(loop);
-}
-
-$("playBtn").addEventListener("click", startRun);
-$("againBtn").addEventListener("click", startRun);
-$("pauseBtn").addEventListener("click", pause);
-$("resumeBtn").addEventListener("click", resume);
-
-$("quitBtn").addEventListener("click", () => {
-  if (!active) return;
-
-  active = false;
-  cancelAnimationFrame(raf);
-  showScreen("home");
-});
-
-canvas.addEventListener("pointerdown", e => {
-  canvas.setPointerCapture?.(e.pointerId);
-  moveTo(e);
-});
-
-canvas.addEventListener("pointermove", e => {
-  if (e.buttons || e.pointerType === "touch") moveTo(e);
-});
-
-document.addEventListener("keydown", e => {
-  keys[e.key] = true;
-
-  if (
-    ["ArrowLeft", "ArrowRight", " "].includes(e.key)
-  ) e.preventDefault();
-
-  if (e.key === "Escape" && active) {
-    paused ? resume() : pause();
+    ctx.fillStyle = "rgba(255,255,255,.15)";
+    ctx.beginPath();
+    ctx.arc(-o.radius * .25, -o.radius * .2, o.radius * .18, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.restore();
   }
-});
 
-document.addEventListener("keyup", e => {
-  keys[e.key] = false;
-});
+  function drawDrone(o) {
+    ctx.save();
+    ctx.translate(o.x, o.y);
+    ctx.rotate(Math.sin(elapsed * 3 + o.phase) * .12);
+    ctx.shadowBlur = 16;
+    ctx.shadowColor = "#ff4f9a";
+    ctx.fillStyle = "#622b67";
+    ctx.strokeStyle = "#ff80ce";
+    ctx.lineWidth = 2;
+    ctx.beginPath();
+    ctx.moveTo(0, -18);
+    ctx.lineTo(20, 0);
+    ctx.lineTo(0, 18);
+    ctx.lineTo(-20, 0);
+    ctx.closePath();
+    ctx.fill();
+    ctx.stroke();
+    ctx.fillStyle = "#fff";
+    ctx.beginPath();
+    ctx.arc(0, 0, 5, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.restore();
+  }
 
-updateMeta();
-renderShop();
+  function drawCrystal(o) {
+    ctx.save();
+    ctx.translate(o.x, o.y);
+    ctx.rotate(elapsed * 2);
+    ctx.shadowBlur = 20;
+    ctx.shadowColor = "#48eaff";
+    ctx.fillStyle = "#48eaff";
+    ctx.beginPath();
+    ctx.moveTo(0, -13);
+    ctx.lineTo(10, 0);
+    ctx.lineTo(0, 13);
+    ctx.lineTo(-10, 0);
+    ctx.closePath();
+    ctx.fill();
+    ctx.restore();
+  }
 
+  function drawPowerup(o) {
+    const color = o.type === "shield" ? "#55ffb8" : "#b18aff";
+    ctx.save();
+    ctx.translate(o.x, o.y);
+    ctx.shadowBlur = 18;
+    ctx.shadowColor = color;
+    ctx.strokeStyle = color;
+    ctx.lineWidth = 3;
+    ctx.beginPath();
+    ctx.arc(0, 0, 12, 0, Math.PI * 2);
+    ctx.stroke();
+    ctx.fillStyle = color;
+    ctx.font = "bold 15px Arial";
+    ctx.textAlign = "center";
+    ctx.textBaseline = "middle";
+    ctx.fillText(o.type === "shield" ? "S" : "Z", 0, 1);
+    ctx.restore();
+  }
+
+  function drawObjects() {
+    objects.forEach(o => {
+      if (o.type === "rock") drawRock(o);
+      if (o.type === "drone") drawDrone(o);
+      if (o.type === "crystal") drawCrystal(o);
+      if (o.type === "shield" || o.type === "slow") drawPowerup(o);
+    });
+  }
+
+  function drawParticles(dt) {
+    particles.forEach(p => {
+      p.x += p.vx * dt;
+      p.y += p.vy * dt;
+      p.life -= dt;
+      p.vx *= .98;
+      p.vy *= .98;
+      ctx.globalAlpha = Math.max(0, p.life / p.max);
+      ctx.fillStyle = p.color;
+      ctx.beginPath();
+      ctx.arc(p.x, p.y, p.size, 0, Math.PI * 2);
+      ctx.fill();
+    });
+    ctx.globalAlpha = 1;
+    particles = particles.filter(p => p.life > 0);
+  }
+
+  function drawGame(dt) {
+    ctx.save();
+    if (shake > 0) {
+      ctx.translate((Math.random() - .5) * shake, (Math.random() - .5) * shake);
+      shake *= .88;
+    }
+
+    drawBackground(dt);
+    drawObjects();
+    drawParticles(dt);
+    drawShip();
+
+    ctx.restore();
+
+    if (toastTime > 0) {
+      toastTime -= dt;
+      ctx.save();
+      ctx.globalAlpha = Math.min(1, toastTime * 2);
+      ctx.textAlign = "center";
+      ctx.font = "bold 24px Orbitron, Arial";
+      ctx.shadowBlur = 18;
+      ctx.shadowColor = "#48eaff";
+      ctx.fillStyle = "#fff";
+      ctx.fillText(toast, W / 2, 120);
+      ctx.restore();
+    }
+
+    if (shieldTime > 0 || slowTime > 0) {
+      ctx.fillStyle = "#fff";
+      ctx.font = "bold 12px Arial";
+      ctx.textAlign = "left";
+      if (shieldTime > 0) ctx.fillText(`SHIELD ${shieldTime.toFixed(1)}s`, 12, H - 18);
+      if (slowTime > 0) ctx.fillText(`SLOW-MO ${slowTime.toFixed(1)}s`, 12, H - (shieldTime > 0 ? 36 : 18));
+    }
+  }
+
+  function update(dt) {
+    elapsed += dt;
+    score += Math.floor(dt * 12);
+    invincible = Math.max(0, invincible - dt);
+    shieldTime = Math.max(0, shieldTime - dt);
+    slowTime = Math.max(0, slowTime - dt);
+
+    const newLevel = Math.floor(score / 1500) + 1;
+    if (newLevel > level) {
+      level = newLevel;
+      const bonus = 25 + level * 10;
+      earned += bonus;
+      toast = `LEVEL ${level}  +${bonus} CREDITS`;
+      toastTime = 2.5;
+      burst(W / 2, 160, "#48eaff", 30);
+      sound(750, .25);
+    }
+
+    $("score").textContent = score;
+
+    const dx = targetX - player.x;
+    const move = player.speed * dt;
+    player.x += Math.sign(dx) * Math.min(Math.abs(dx), move);
+    player.x = Math.max(25, Math.min(W - 25, player.x));
+
+    const d = difficulty();
+    spawnTimer -= dt;
+    if (spawnTimer <= 0) {
+      spawnObject();
+      spawnTimer = d.interval * (.8 + Math.random() * .45);
+    }
+
+    objects.forEach(o => {
+      const speedFactor = slowTime > 0 ? .48 : 1;
+      o.y += o.speed * speedFactor * dt;
+      if (o.type === "rock") o.rotation += o.spin * dt;
+      if (o.type === "drone") o.x += Math.sin(elapsed * 2 + o.phase) * 35 * dt;
+
+      if (o.type === "crystal" && save.upgrades.magnet > 0) {
+        const range = 35 + save.upgrades.magnet * 19;
+        const distance = Math.hypot(player.x - o.x, player.y - o.y);
+        if (distance < range) {
+          o.x += (player.x - o.x) * dt * 3;
+          o.y += (player.y - o.y) * dt * 3;
+        }
+      }
+
+      const distance = Math.hypot(player.x - o.x, player.y - o.y);
+      const hitDistance = o.type === "rock" ? o.radius + 17 : o.radius + 17;
+
+      if (distance < hitDistance) {
+        if (o.type === "crystal" || o.type === "shield" || o.type === "slow") {
+          collect(o);
+        } else {
+          damage(o);
+        }
+      }
+    });
+
+    objects = objects.filter(o => o.y < H + 50);
+    drawGame(dt);
+  }
+
+  function loop(time) {
+    requestAnimationFrame(loop);
+    if (state !== "playing") return;
+
+    const dt = Math.min((time - lastTime) / 1000, .035);
+    lastTime = time;
+    update(dt);
+  }
+
+  function pointerPosition(event) {
+    const rect = canvas.getBoundingClientRect();
+    const scale = W / rect.width;
+    return (event.clientX - rect.left) * scale;
+  }
+
+  canvas.addEventListener("pointerdown", event => {
+    if (state !== "playing") return;
+    pointerDown = true;
+    targetX = pointerPosition(event);
+    canvas.setPointerCapture(event.pointerId);
+  });
+
+  canvas.addEventListener("pointermove", event => {
+    if (pointerDown && state === "playing") {
+      targetX = pointerPosition(event);
+    }
+  });
+
+  canvas.addEventListener("pointerup", () => pointerDown = false);
+  canvas.addEventListener("pointercancel", () => pointerDown = false);
+
+  document.addEventListener("keydown", event => {
+    if (state === "playing") {
+      if (event.key === "ArrowLeft" || event.key.toLowerCase() === "a") targetX = 25;
+      if (event.key === "ArrowRight" || event.key.toLowerCase() === "d") targetX = W - 25;
+      if (event.key === "Escape" || event.key === " ") pauseGame();
+    } else if (state === "paused" && (event.key === "Escape" || event.key === " ")) {
+      resumeGame();
+    }
+  });
+
+  $("playBtn").addEventListener("click", startRun);
+  $("againBtn").addEventListener("click", startRun);
+  $("pauseBtn").addEventListener("click", pauseGame);
+  $("resumeBtn").addEventListener("click", resumeGame);
+  $("quitBtn").addEventListener("click", quitGame);
+
+  document.querySelectorAll("[data-screen]").forEach(button => {
+    button.addEventListener("click", () => showScreen(button.dataset.screen));
+  });
+
+  newStars();
+  updateMenus();
+  showScreen("home");
+  requestAnimationFrame(loop);
 })();
