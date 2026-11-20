@@ -3,191 +3,119 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
-  <meta name="theme-color" content="#070816">
-  <title>NEON DRIFT: AFTERBURN</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <meta name="theme-color" content="#050817">
+  <title>NEON DRIFT: SPACE ARCADE</title>
   <link rel="stylesheet" href="style.css">
 </head>
 <body>
-  <main class="shell">
-
+  <div class="app">
     <header class="topbar">
-      <div class="brand">
-        <span class="brand-mark">✦</span>
-        <div>
-          <strong>NEON DRIFT</strong>
-          <small>AFTERBURN</small>
-        </div>
-      </div>
-      <div class="wallet">◆ <span id="bank">0</span></div>
+      <div class="brand"><span class="brand-icon">✦</span> NEON <b>DRIFT</b></div>
+      <div class="wallet">◈ <span id="bank">0</span></div>
     </header>
 
-    <!-- MAIN MENU -->
-    <section id="home" class="screen active">
-      <div class="hero">
-        <div class="eyebrow">ARCADE SURVIVAL • SEASON 01</div>
-        <h1>OWN THE<br><em>NIGHT.</em></h1>
-        <p class="muted">Dodge. Collect. Upgrade. Survive as long as possible.</p>
-
-        <div class="ship-preview">△</div>
-
-        <button id="playBtn" class="primary">
-          START RUN <span>→</span>
-        </button>
-
-        <div class="home-actions">
-          <button class="secondary" data-screen="shop">GARAGE / UPGRADES</button>
-          <button class="secondary" data-screen="tutorial">HOW TO PLAY</button>
-        </div>
-      </div>
-
-      <div class="stats-row">
-        <div><small>HIGH SCORE</small><strong id="bestHome">0</strong></div>
-        <div><small>TOTAL RUNS</small><strong id="runsHome">0</strong></div>
-        <div><small>SHIP LEVEL</small><strong id="levelHome">1</strong></div>
-      </div>
-    </section>
-
-    <!-- TUTORIAL -->
-    <section id="tutorial" class="screen">
-      <button class="back" data-screen="home">← BACK</button>
-
-      <div class="eyebrow">FLIGHT SCHOOL</div>
-      <h2>HOW TO SURVIVE</h2>
-
-      <div class="guide-grid">
-        <article class="guide-card">
-          <b class="guide-icon cyan">↔</b>
-          <h3>MOVE</h3>
-          <p>Drag your finger across the game area. On desktop, use ← → or A / D.</p>
-        </article>
-
-        <article class="guide-card">
-          <b class="guide-icon pink">✕</b>
-          <h3>DODGE</h3>
-          <p>Avoid the pink obstacles. You start with 3 lives. Every collision costs one life.</p>
-        </article>
-
-        <article class="guide-card">
-          <b class="guide-icon gold">◆</b>
-          <h3>COLLECT</h3>
-          <p>Collect golden energy orbs to earn credits. Spend your credits in the garage.</p>
-        </article>
-
-        <article class="guide-card">
-          <b class="guide-icon purple">⬡</b>
-          <h3>POWER-UPS</h3>
-          <p>Blue shields give temporary protection. Purple boosts slow down obstacles.</p>
-        </article>
-      </div>
-
-      <button class="primary" data-screen="home">
-        I'M READY TO FLY →
-      </button>
-    </section>
-
-    <!-- GARAGE -->
-    <section id="shop" class="screen">
-      <button class="back" data-screen="home">← BACK</button>
-
-      <div class="eyebrow">HANGAR 09</div>
-      <h2>YOUR GARAGE</h2>
-      <p class="muted">Spend your credits on permanent upgrades.</p>
-
-      <div class="shop-balance">
-        ◆ <span id="shopBank">0</span> CREDITS
-      </div>
-
-      <div id="upgradeList" class="upgrade-list"></div>
-
-      <p class="tiny muted">Upgrades are saved on this device.</p>
-    </section>
-
-    <!-- GAME -->
-    <section id="gameScreen" class="screen game-screen">
-      <div class="hud">
-        <div>
-          <small>SCORE</small>
-          <strong id="score">0</strong>
-        </div>
-
-        <div>
-          <small>BEST</small>
-          <strong id="bestHud">0</strong>
-        </div>
-
-        <div>
-          <small>LIVES</small>
-          <strong id="lives">♥♥♥</strong>
-        </div>
-
-        <button id="pauseBtn" class="pause">Ⅱ</button>
-      </div>
-
-      <div class="canvas-wrap">
-        <canvas id="game" width="360" height="600"></canvas>
-
-        <div id="overlay" class="overlay hidden">
-          <div class="overlay-panel">
-            <div class="eyebrow" id="overlayTag">PAUSED</div>
-            <h2 id="overlayTitle">RUN PAUSED</h2>
-            <p id="overlayText">Take a breath.</p>
-
-            <button id="resumeBtn" class="primary">
-              RESUME GAME
-            </button>
-
-            <button id="quitBtn" class="secondary">
-              END RUN
-            </button>
+    <main>
+      <section id="home" class="screen active">
+        <div class="hero">
+          <div class="eyebrow">THE GALAXY IS YOURS</div>
+          <h1>SPACE<br><span>ARCADE</span></h1>
+          <p class="hero-sub">Dodge. Collect. Upgrade. Survive.</p>
+          <div class="ship-showcase">
+            <div class="planet planet-one"></div>
+            <div class="planet planet-two"></div>
+            <div class="showcase-ship">▲</div>
+            <div class="orbit orbit-one"></div>
+            <div class="orbit orbit-two"></div>
+          </div>
+          <button id="playBtn" class="btn primary">▶ START MISSION</button>
+          <div class="home-actions">
+            <button class="btn secondary" data-screen="shop">⬡ UPGRADES</button>
+            <button class="btn secondary" data-screen="tutorial">? HOW TO PLAY</button>
           </div>
         </div>
-      </div>
-
-      <div class="game-tip">
-        DRAG TO MOVE <span>•</span> COLLECT ◆ <span>•</span> AVOID PINK
-      </div>
-    </section>
-
-    <!-- GAME OVER -->
-    <section id="result" class="screen">
-      <div class="eyebrow">RUN COMPLETE</div>
-      <h2>GAME OVER</h2>
-
-      <div class="result-score" id="finalScore">0</div>
-      <p class="muted">SCORE</p>
-
-      <div class="result-grid">
-        <div>
-          <small>CREDITS EARNED</small>
-          <strong id="earned">0</strong>
+        <div class="stats-grid">
+          <div class="stat-card"><small>BEST SCORE</small><strong id="bestHome">0</strong></div>
+          <div class="stat-card"><small>MISSIONS</small><strong id="runsHome">0</strong></div>
+          <div class="stat-card"><small>LEVEL</small><strong id="levelHome">1</strong></div>
         </div>
+      </section>
 
-        <div>
-          <small>HIGH SCORE</small>
-          <strong id="bestResult">0</strong>
+      <section id="tutorial" class="screen">
+        <div class="section-heading">
+          <div class="eyebrow">MISSION BRIEFING</div>
+          <h2>HOW TO <span>PLAY</span></h2>
         </div>
-      </div>
+        <div class="info-card">
+          <div class="info-icon">☄</div>
+          <div><h3>DODGE THE ASTEROIDS</h3><p>Move your ship left and right to avoid incoming asteroids and enemy drones.</p></div>
+        </div>
+        <div class="info-card">
+          <div class="info-icon">◈</div>
+          <div><h3>COLLECT ENERGY</h3><p>Pick up glowing energy crystals to earn credits and increase your score.</p></div>
+        </div>
+        <div class="info-card">
+          <div class="info-icon">✧</div>
+          <div><h3>POWER UP</h3><p>Collect shields and slow-motion boosts to survive dangerous moments.</p></div>
+        </div>
+        <div class="info-card">
+          <div class="info-icon">⬡</div>
+          <div><h3>UPGRADE YOUR SHIP</h3><p>Spend credits in the garage to improve your ship and reach higher levels.</p></div>
+        </div>
+        <div class="control-tip">TOUCH AND DRAG ON THE SCREEN TO MOVE</div>
+        <button class="btn primary" data-screen="home">BACK TO BASE</button>
+      </section>
 
-      <button id="againBtn" class="primary">
-        PLAY AGAIN →
-      </button>
+      <section id="shop" class="screen">
+        <div class="section-heading">
+          <div class="eyebrow">SHIP ENGINEERING</div>
+          <h2>UPGRADE <span>GARAGE</span></h2>
+          <p>Build a ship that can survive the galaxy.</p>
+        </div>
+        <div class="garage-balance">AVAILABLE CREDITS <strong>◈ <span id="shopBank">0</span></strong></div>
+        <div id="upgradeList" class="upgrade-list"></div>
+        <button class="btn secondary" data-screen="home">BACK TO BASE</button>
+      </section>
 
-      <button class="secondary" data-screen="shop">
-        VIEW UPGRADES
-      </button>
+      <section id="gameScreen" class="screen game-screen">
+        <div class="hud">
+          <div class="hud-item"><small>SCORE</small><strong id="score">0</strong></div>
+          <div class="hud-item"><small>BEST</small><strong id="bestHud">0</strong></div>
+          <div class="hud-item"><small>HULL</small><strong id="lives">♥♥♥</strong></div>
+          <button id="pauseBtn" class="pause-btn">Ⅱ</button>
+        </div>
+        <div class="canvas-wrap">
+          <canvas id="game" width="420" height="700"></canvas>
+          <div id="overlay" class="overlay hidden">
+            <div class="overlay-panel">
+              <div id="overlayTag" class="eyebrow">MISSION PAUSED</div>
+              <h2 id="overlayTitle">PAUSED</h2>
+              <p id="overlayText">Take a breath, pilot.</p>
+              <button id="resumeBtn" class="btn primary">RESUME</button>
+              <button id="quitBtn" class="btn secondary">QUIT MISSION</button>
+            </div>
+          </div>
+        </div>
+        <div class="game-hint">DRAG TO MOVE · COLLECT ◈ · AVOID ☄</div>
+      </section>
 
-      <button class="text-button" data-screen="home">
-        BACK TO MAIN MENU
-      </button>
-    </section>
-
-    <footer>
-      NEON DRIFT <span>•</span> AFTERBURN EDITION
-    </footer>
-
-  </main>
-
+      <section id="result" class="screen">
+        <div class="result-content">
+          <div class="eyebrow">MISSION REPORT</div>
+          <h2>MISSION <span>COMPLETE</span></h2>
+          <div class="result-score"><small>FINAL SCORE</small><strong id="finalScore">0</strong></div>
+          <div class="result-stats">
+            <div><small>CREDITS EARNED</small><strong id="earned">0</strong></div>
+            <div><small>BEST SCORE</small><strong id="bestResult">0</strong></div>
+          </div>
+          <button id="againBtn" class="btn primary">↻ PLAY AGAIN</button>
+          <button class="btn secondary" data-screen="shop">⬡ UPGRADE SHIP</button>
+          <button class="text-btn" data-screen="home">RETURN TO BASE</button>
+        </div>
+      </section>
+    </main>
+    <footer>NEON DRIFT // DEEP SPACE DIVISION</footer>
+  </div>
   <script src="game.js"></script>
 </body>
 </html>
