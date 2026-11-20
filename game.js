@@ -2,12 +2,21 @@
 (() => {
 "use strict";
 
+/* =========================
+   NEON DRIFT: SPACE ARCADE
+   ========================= */
+
 const $ = id => document.getElementById(id);
 const canvas = $("game");
-if (!canvas) return;
+const ctx = canvas ? canvas.getContext("2d") : null;
 
-const ctx = canvas.getContext("2d");
-const W = 420, H = 700;
+if (!canvas || !ctx) {
+  console.error("NEON DRIFT: game canvas not found.");
+  return;
+}
+
+const W = 420;
+const H = 700;
 canvas.width = W;
 canvas.height = H;
 
@@ -17,504 +26,1133 @@ const defaults = {
   credits: 0,
   best: 0,
   runs: 0,
-  upgrades: { hull: 0, engine: 0, weapon: 0, extra: 0 },
-  inventory: ["laser"],
-  equipped: { weapon: "laser", module: "none" },
-  lastDaily: ""
+  upgrades: {
+    hull: 0,
+    engine: 0,
+    weapon: 0,
+    extra: 0
+  },
+  inventory: [
+    "weapon_basic",
+    "module_basic"
+  ],
+  equipped: {
+    weapon: "weapon_basic",
+    module: "module_basic"
+  },
+  dailyClaim: "",
+  tutorialSeen: false
 };
 
-let save;
-try {
-  save = JSON.parse(localStorage.getItem(SAVE_KEY)) || defaults;
-} catch {
-  save = defaults;
+function loadSave() {
+  try {
+    const old = JSON.parse(localStorage.getItem(SAVE_KEY));
+    if (!old) return structuredClone(defaults);
+
+    return {
+      ...structuredClone(defaults),
+      ...old,
+      upgrades: {
+        ...defaults.upgrades,
+        ...(old.upgrades || {})
+      },
+      equipped: {
+        ...defaults.equipped,
+        ...(old.equipped || {})
+      },
+      inventory: Array.isArray(old.inventory)
+        ? old.inventory
+        : [...defaults.inventory]
+    };
+  } catch (error) {
+    console.warn("Save could not be loaded:", error);
+    return structuredClone(defaults);
+  }
 }
 
-save = {
-  ...defaults,
-  ...save,
-  upgrades: { ...defaults.upgrades, ...(save.upgrades || {}) },
-  equipped: { ...defaults.equipped, ...(save.equipped || {}) },
-  inventory: save.inventory || ["laser"]
-};
+let save = loadSave();
 
 function saveGame() {
-  localStorage.setItem(SAVE_KEY, JSON.stringify(save));
+  try {
+    localStorage.setItem(SAVE_KEY, JSON.stringify(save));
+  } catch (error) {
+    console.warn("Save could not be stored:", error);
+  }
 }
 
+/* =========================
+   ITEMS
+   ========================= */
+
 const items = {
-  laser: { name: "Standard Laser", rarity: "Common", type: "weapon", damage: 1, icon: "🔫" },
-  double: { name: "Double Laser", rarity: "Rare", type: "weapon", damage: 2, icon: "⚡" },
-  plasma: { name: "Plasma Cannon", rarity: "Epic", type: "weapon", damage: 3, icon: "💥" },
-  nova: { name: "Nova Blaster", rarity: "Legendary", type: "weapon", damage: 5, icon: "🌟" },
-  none: { name: "No Module", rarity: "Common", type: "module", health: 0, icon: "—" },
-  shield: { name: "Shield Core", rarity: "Rare", type: "module", health: 1, icon: "🛡️" },
-  reactor: { name: "Reactor Core", rarity: "Epic", type: "module", health: 0, icon: "🔋" }
+  weapon_basic: {
+    id: "weapon_basic",
+    name: "Pulse Blaster",
+    type: "weapon",
+    rarity: "common",
+    icon: "🔫",
+    damage: 1,
+    fireRate: 0.38,
+    description: "A reliable standard weapon."
+  },
+  weapon_double: {
+    id: "weapon_double",
+    name: "Twin Blasters",
+    type: "weapon",
+    rarity: "uncommon",
+    icon: "⚔️",
+    damage: 1,
+    fireRate: 0.43,
+    double: true,
+    description: "Fires two projectiles at once."
+  },
+  weapon_laser: {
+    id: "weapon_laser",
+    name: "Laser Cannon",
+    type: "weapon",
+    rarity: "rare",
+    icon: "🔆",
+    damage: 2,
+    fireRate: 0.48,
+    description: "Powerful laser shots."
+  },
+  weapon_plasma: {
+    id: "weapon_plasma",
+    name: "Plasma Destroyer",
+    type: "weapon",
+    rarity: "epic",
+    icon: "💥",
+    damage: 3,
+    fireRate: 0.42,
+    description: "High damage plasma weapon."
+  },
+  weapon_nova: {
+    id: "weapon_nova",
+    name: "Nova Blaster",
+    type: "weapon",
+    rarity: "legendary",
+    icon: "🌟",
+    damage: 4,
+    fireRate: 0.35,
+    double: true,
+    description: "The ultimate space weapon."
+  },
+
+  module_basic: {
+    id: "module_basic",
+    name: "Standard Core",
+    type: "module",
+    rarity: "common",
+    icon: "🔋",
+    health: 0,
+    description: "A standard ship module."
+  },
+  module_shield: {
+    id: "module_shield",
+    name: "Shield Core",
+    type: "module",
+    rarity: "uncommon",
+    icon: "🛡️",
+    health: 1,
+    description: "Adds one extra life."
+  },
+  module_speed: {
+    id: "module_speed",
+    name: "Velocity Core",
+    type: "module",
+    rarity: "rare",
+    icon: "⚡",
+    speed: 1.25,
+    description: "Increases ship movement speed."
+  },
+  module_reactor: {
+    id: "module_reactor",
+    name: "Reactor Core",
+    type: "module",
+    rarity: "epic",
+    icon: "☢️",
+    health: 2,
+    description: "Adds two extra lives."
+  },
+  module_phantom: {
+    id: "module_phantom",
+    name: "Phantom Core",
+    type: "module",
+    rarity: "legendary",
+    icon: "👾",
+    health: 2,
+    speed: 1.4,
+    description: "An extremely advanced module."
+  }
 };
 
-let screen = "home";
-let mode = "menu";
+const rarityNames = {
+  common: "Common",
+  uncommon: "Uncommon",
+  rare: "Rare",
+  epic: "Epic",
+  legendary: "Legendary"
+};
+
+function getItem(id) {
+  return items[id] || items.weapon_basic;
+}
+
+/* =========================
+   SCREEN NAVIGATION
+   ========================= */
+
+let currentScreen = "home";
+
+function showScreen(id) {
+  const target = $(id);
+  if (!target) return;
+
+  document.querySelectorAll(".screen").forEach(screen => {
+    screen.classList.remove("active");
+  });
+
+  target.classList.add("active");
+  currentScreen = id;
+
+  if (id !== "gameScreen" && gameState === "playing") {
+    pauseGame();
+  }
+
+  updateAllUI();
+}
+
+document.querySelectorAll("[data-open]").forEach(button => {
+  button.addEventListener("click", () => {
+    const destination = button.dataset.open;
+    if (destination) showScreen(destination);
+  });
+});
+
+/* =========================
+   GAME STATE
+   ========================= */
+
+let gameState = "menu";
+let animationId = null;
+let lastFrame = 0;
+
 let score = 0;
 let earned = 0;
 let level = 1;
 let lives = 3;
-let objects = [];
-let bullets = [];
-let particles = [];
-let lastFrame = 0;
-let animationId = 0;
+let gameTime = 0;
+
 let spawnTimer = 0;
 let fireTimer = 0;
+let crystalTimer = 0;
+let invincible = 0;
+
+let enemies = [];
+let bullets = [];
+let crystals = [];
+let particles = [];
+
+const player = {
+  x: W / 2,
+  y: H - 100,
+  width: 32,
+  height: 42,
+  speed: 260
+};
+
+const keys = {};
 let pointerDown = false;
-let player = { x: W / 2, y: H - 100 };
-
-function showScreen(id) {
-  document.querySelectorAll(".screen").forEach(s => s.classList.remove("active"));
-  const target = $(id);
-  if (target) target.classList.add("active");
-  screen = id;
-
-  if (id === "hangar") renderHangar();
-  if (id === "packs") updateDailyButton();
-  if (id === "upgrades") renderUpgrades();
-  updateBank();
-}
-
-function updateBank() {
-  if ($("bank")) $("bank").textContent = save.credits.toLocaleString();
-  if ($("bestHome")) $("bestHome").textContent = save.best;
-  if ($("runsHome")) $("runsHome").textContent = save.runs;
-  if ($("shipLevelHome")) $("shipLevelHome").textContent = save.upgrades.hull + 1;
-}
-
-function getWeapon() {
-  return items[save.equipped.weapon] || items.laser;
-}
-
-function getModule() {
-  return items[save.equipped.module] || items.none;
-}
-
-function renderHangar() {
-  if ($("shipName")) $("shipName").textContent = "NEON FIGHTER";
-
-  const weapons = $("weaponSlots");
-  const modules = $("moduleSlots");
-
-  if (weapons) {
-    weapons.innerHTML = "";
-    save.inventory.filter(id => items[id]?.type === "weapon").forEach(id => {
-      const item = items[id];
-      const button = document.createElement("button");
-      button.className = "upgrade-card";
-      button.textContent = `${item.icon} ${item.name} (${item.rarity}) ${save.equipped.weapon === id ? "✓ EQUIPPED" : "EQUIP"}`;
-      button.onclick = () => {
-        save.equipped.weapon = id;
-        saveGame();
-        renderHangar();
-      };
-      weapons.appendChild(button);
-    });
-  }
-
-  if (modules) {
-    modules.innerHTML = "";
-    save.inventory.filter(id => items[id]?.type === "module").forEach(id => {
-      const item = items[id];
-      const button = document.createElement("button");
-      button.className = "upgrade-card";
-      button.textContent = `${item.icon} ${item.name} ${save.equipped.module === id ? "✓ EQUIPPED" : "EQUIP"}`;
-      button.onclick = () => {
-        save.equipped.module = id;
-        saveGame();
-        renderHangar();
-      };
-      modules.appendChild(button);
-    });
-  }
-
-  const inventory = $("inventory");
-  if (inventory) {
-    inventory.innerHTML = "";
-    save.inventory.forEach(id => {
-      const item = items[id];
-      if (!item) return;
-      const card = document.createElement("div");
-      card.className = "upgrade-card";
-      card.textContent = `${item.icon} ${item.name} — ${item.rarity}`;
-      inventory.appendChild(card);
-    });
-  }
-}
-
-function renderUpgrades() {
-  const area = $("upgradeList");
-  if (!area) return;
-
-  const upgrades = [
-    ["hull", "Hull Strength", "More durability", 100],
-    ["engine", "Engine Speed", "Move faster", 150],
-    ["weapon", "Weapon Power", "Deal more damage", 200],
-    ["extra", "Extra Life", "Start with another life", 300]
-  ];
-
-  area.innerHTML = "";
-
-  upgrades.forEach(([id, name, desc, base]) => {
-    const level = save.upgrades[id];
-    const price = base * (level + 1);
-    const card = document.createElement("div");
-    card.className = "upgrade-card";
-    card.innerHTML = `<h3>${name}</h3><p>${desc}</p><p>Level ${level}</p><button>UPGRADE — ${price} CR</button>`;
-    card.querySelector("button").onclick = () => {
-      if (save.credits < price) return alert("Not enough credits!");
-      save.credits -= price;
-      save.upgrades[id]++;
-      saveGame();
-      renderUpgrades();
-      updateBank();
-    };
-    area.appendChild(card);
-  });
-}
-
-function updateDailyButton() {
-  const today = new Date().toDateString();
-  const claimed = save.lastDaily === today;
-
-  if ($("dailyBtn")) {
-    $("dailyBtn").disabled = claimed;
-    $("dailyBtn").textContent = claimed ? "DAILY PACK CLAIMED" : "CLAIM FREE DAILY PACK";
-  }
-  if ($("dailyStatus")) {
-    $("dailyStatus").textContent = claimed ? "Come back tomorrow!" : "Your free daily pack is ready!";
-  }
-}
-
-function openPack(free = false) {
-  if (!free) {
-    if (save.credits < 250) return alert("Not enough credits!");
-    save.credits -= 250;
-  }
-
-  const roll = Math.random();
-  let id = "laser";
-
-  if (roll > .995) id = "nova";
-  else if (roll > .96) id = "plasma";
-  else if (roll > .82) id = "double";
-  else if (roll > .65) id = "shield";
-  else if (roll > .50) id = "reactor";
-
-  if (!save.inventory.includes(id)) save.inventory.push(id);
-
-  const item = items[id];
-
-  if ($("packItemIcon")) $("packItemIcon").textContent = item.icon;
-  if ($("packItemName")) $("packItemName").textContent = item.name;
-  if ($("packRarity")) $("packRarity").textContent = item.rarity;
-  if ($("packItemDesc")) $("packItemDesc").textContent = `You received ${item.name}!`;
-
-  saveGame();
-  updateBank();
-  renderHangar();
-}
-
-function claimDaily() {
-  const today = new Date().toDateString();
-  if (save.lastDaily === today) return;
-  save.lastDaily = today;
-  saveGame();
-  openPack(true);
-  updateDailyButton();
-}
-
-function updateHUD() {
-  if ($("score")) $("score").textContent = score;
-  if ($("levelHud")) $("levelHud").textContent = level;
-  if ($("lives")) $("lives").textContent = lives;
-}
+let pointerX = W / 2;
+let pointerY = H - 100;
 
 function startRun() {
   score = 0;
   earned = 0;
   level = 1;
-  lives = 3 + save.upgrades.extra + (getModule().health || 0);
+  gameTime = 0;
 
-  objects = [];
+  const module = getItem(save.equipped.module);
+  lives = 3 + save.upgrades.extra + (module.health || 0);
+
+  enemies = [];
   bullets = [];
+  crystals = [];
   particles = [];
 
-  spawnTimer = .5;
+  spawnTimer = 0.6;
   fireTimer = 0;
+  crystalTimer = 2;
+  invincible = 2;
+
   player.x = W / 2;
   player.y = H - 100;
 
-  mode = "playing";
+  pointerDown = false;
+
+  gameState = "playing";
   showScreen("gameScreen");
+  gameState = "playing";
+
   updateHUD();
 
   cancelAnimationFrame(animationId);
-  lastFrame = performance.now();
-  animationId = requestAnimationFrame(loop);
+  lastFrame = 0;
+  animationId = requestAnimationFrame(gameLoop);
 }
 
 function pauseGame() {
-  if (mode !== "playing") return;
-  mode = "paused";
-  if ($("overlay")) $("overlay").classList.add("active");
-  if ($("overlayTag")) $("overlayTag").textContent = "PAUSED";
-  if ($("overlayTitle")) $("overlayTitle").textContent = "MISSION PAUSED";
-  if ($("overlayText")) $("overlayText").textContent = "Take a break, pilot.";
+  if (gameState !== "playing") return;
+
+  gameState = "paused";
+  cancelAnimationFrame(animationId);
+
+  $("overlayTag").textContent = "PAUSED";
+  $("overlayTitle").textContent = "Game Paused";
+  $("overlayText").textContent = "Take a break and continue when you're ready.";
+
+  $("resumeBtn").textContent = "RESUME";
+  $("overlay").classList.add("active");
 }
 
 function resumeGame() {
-  if (mode !== "paused") return;
-  if ($("overlay")) $("overlay").classList.remove("active");
-  mode = "playing";
-  lastFrame = performance.now();
-  animationId = requestAnimationFrame(loop);
+  if (gameState !== "paused") return;
+
+  $("overlay").classList.remove("active");
+  gameState = "playing";
+  lastFrame = 0;
+  animationId = requestAnimationFrame(gameLoop);
 }
 
 function endRun() {
-  if (mode !== "playing") return;
-  mode = "over";
+  if (gameState !== "playing") return;
+
+  gameState = "over";
+  cancelAnimationFrame(animationId);
 
   save.runs++;
   save.credits += earned;
   save.best = Math.max(save.best, score);
   saveGame();
 
-  if ($("finalScore")) $("finalScore").textContent = score;
-  if ($("earned")) $("earned").textContent = earned;
-  if ($("bestResult")) $("bestResult").textContent = save.best;
+  $("finalScore").textContent = score.toLocaleString();
+  $("earned").textContent = earned.toLocaleString();
+  $("bestResult").textContent = save.best.toLocaleString();
 
-  updateBank();
+  $("overlay").classList.remove("active");
   showScreen("result");
+  updateAllUI();
 }
 
-function spawnEnemy() {
-  objects.push({
-    x: 25 + Math.random() * (W - 50),
-    y: -30,
-    size: 16 + Math.random() * 13,
-    speed: 100 + level * 15,
-    hp: 1 + Math.floor(level / 4),
-    crystal: false
-  });
+/* =========================
+   PLAYER CONTROLS
+   ========================= */
+
+function getPointerPosition(event) {
+  const rect = canvas.getBoundingClientRect();
+
+  return {
+    x: (event.clientX - rect.left) * (W / rect.width),
+    y: (event.clientY - rect.top) * (H / rect.height)
+  };
 }
 
-function spawnCrystal() {
-  objects.push({
-    x: 25 + Math.random() * (W - 50),
-    y: -20,
-    size: 10,
-    speed: 130,
-    hp: 1,
-    crystal: true
-  });
+canvas.addEventListener("pointerdown", event => {
+  if (gameState !== "playing") return;
+
+  pointerDown = true;
+  const position = getPointerPosition(event);
+  pointerX = position.x;
+  pointerY = position.y;
+  canvas.setPointerCapture?.(event.pointerId);
+});
+
+canvas.addEventListener("pointermove", event => {
+  if (!pointerDown || gameState !== "playing") return;
+
+  const position = getPointerPosition(event);
+  pointerX = position.x;
+  pointerY = position.y;
+});
+
+function releasePointer() {
+  pointerDown = false;
 }
 
-function shoot() {
-  const weapon = getWeapon();
-  const damage = weapon.damage + save.upgrades.weapon;
+canvas.addEventListener("pointerup", releasePointer);
+canvas.addEventListener("pointercancel", releasePointer);
+canvas.addEventListener("pointerleave", releasePointer);
 
-  bullets.push({ x: player.x, y: player.y - 25, damage });
-  if (weapon.damage >= 2) {
-    bullets.push({ x: player.x - 12, y: player.y - 15, damage });
-    bullets.push({ x: player.x + 12, y: player.y - 15, damage });
+window.addEventListener("keydown", event => {
+  keys[event.key.toLowerCase()] = true;
+
+  if (
+    ["arrowup", "arrowdown", "arrowleft", "arrowright", " "]
+      .includes(event.key.toLowerCase())
+  ) {
+    event.preventDefault();
+  }
+
+  if (event.key === "Escape" && gameState === "playing") {
+    pauseGame();
+  }
+});
+
+window.addEventListener("keyup", event => {
+  keys[event.key.toLowerCase()] = false;
+});
+
+/* =========================
+   GAME LOOP
+   ========================= */
+
+function gameLoop(timestamp) {
+  if (gameState !== "playing") return;
+
+  const dt = lastFrame
+    ? Math.min((timestamp - lastFrame) / 1000, 0.04)
+    : 0.016;
+
+  lastFrame = timestamp;
+
+  update(dt);
+  draw();
+
+  if (gameState === "playing") {
+    animationId = requestAnimationFrame(gameLoop);
   }
 }
 
 function update(dt) {
-  spawnTimer -= dt;
+  gameTime += dt;
+
+  const weapon = getItem(save.equipped.weapon);
+  const module = getItem(save.equipped.module);
+
+  const speedMultiplier = module.speed || 1;
+  const engineBonus = save.upgrades.engine * 18;
+  const moveSpeed = (player.speed + engineBonus) * speedMultiplier;
+
+  if (keys.arrowleft || keys.a) player.x -= moveSpeed * dt;
+  if (keys.arrowright || keys.d) player.x += moveSpeed * dt;
+  if (keys.arrowup || keys.w) player.y -= moveSpeed * dt;
+  if (keys.arrowdown || keys.s) player.y += moveSpeed * dt;
+
+  if (pointerDown) {
+    player.x += (pointerX - player.x) * Math.min(1, dt * 12);
+    player.y += (pointerY - player.y) * Math.min(1, dt * 12);
+  }
+
+  player.x = Math.max(22, Math.min(W - 22, player.x));
+  player.y = Math.max(35, Math.min(H - 35, player.y));
+
+  if (invincible > 0) invincible -= dt;
+
+  /* Shooting */
   fireTimer -= dt;
+
+  const fireRate = Math.max(
+    0.16,
+    weapon.fireRate - save.upgrades.weapon * 0.025
+  );
+
+  if (fireTimer <= 0) {
+    fireTimer = fireRate;
+
+    const damage = weapon.damage || 1;
+
+    if (weapon.double) {
+      bullets.push(
+        { x: player.x - 11, y: player.y - 18, damage },
+        { x: player.x + 11, y: player.y - 18, damage }
+      );
+    } else {
+      bullets.push({
+        x: player.x,
+        y: player.y - 20,
+        damage
+      });
+    }
+  }
+
+  /* Enemy spawning */
+  spawnTimer -= dt;
 
   if (spawnTimer <= 0) {
     spawnEnemy();
-    spawnTimer = Math.max(.25, 1 - level * .045);
+    spawnTimer = Math.max(0.32, 1.05 - level * 0.045);
   }
 
-  if (Math.random() < dt * .18) spawnCrystal();
+  /* Crystal spawning */
+  crystalTimer -= dt;
 
-  if (fireTimer <= 0) {
-    shoot();
-    fireTimer = Math.max(.12, .35 - save.upgrades.weapon * .025);
+  if (crystalTimer <= 0) {
+    crystals.push({
+      x: 25 + Math.random() * (W - 50),
+      y: -20,
+      speed: 105 + Math.random() * 45,
+      radius: 9
+    });
+
+    crystalTimer = 3 + Math.random() * 3;
   }
 
-  const speed = 260 + save.upgrades.engine * 25;
+  /* Bullets */
+  bullets.forEach(bullet => {
+    bullet.y -= 520 * dt;
+  });
+  bullets = bullets.filter(bullet => bullet.y > -20);
 
-  if (keys.left) player.x -= speed * dt;
-  if (keys.right) player.x += speed * dt;
-
-  player.x = Math.max(20, Math.min(W - 20, player.x));
-
-  bullets.forEach(b => b.y -= 520 * dt);
-  bullets = bullets.filter(b => b.y > -20);
-
-  objects.forEach(o => o.y += o.speed * dt);
-
-  for (const b of bullets) {
-    for (const o of objects) {
-      if (o.crystal || o.hp <= 0) continue;
-      if (Math.hypot(b.x - o.x, b.y - o.y) < o.size + 6) {
-        o.hp -= b.damage;
-        b.y = -100;
-        if (o.hp <= 0) {
-          score += 10;
-          earned += 5;
-          for (let i = 0; i < 5; i++) {
-            particles.push({ x: o.x, y: o.y, life: .5 });
-          }
-        }
-        break;
-      }
-    }
-  }
-
-  objects = objects.filter(o => {
-    if (o.y > H + 30) return false;
-    if (o.hp <= 0) return false;
-
-    if (o.crystal && Math.hypot(o.x - player.x, o.y - player.y) < 30) {
-      score += 5;
-      earned += 10;
-      return false;
-    }
-
-    if (!o.crystal && Math.hypot(o.x - player.x, o.y - player.y) < o.size + 17) {
-      lives--;
-      updateHUD();
-      if (lives <= 0) endRun();
-      return false;
-    }
-    return true;
+  /* Enemies */
+  enemies.forEach(enemy => {
+    enemy.y += enemy.speed * dt;
+    enemy.phase += dt * 3;
+    enemy.x += Math.sin(enemy.phase) * 22 * dt;
   });
 
-  particles.forEach(p => p.life -= dt);
-  particles = particles.filter(p => p.life > 0);
+  /* Crystals */
+  crystals.forEach(crystal => {
+    crystal.y += crystal.speed * dt;
+  });
 
-  level = 1 + Math.floor(score / 200);
+  /* Bullet collisions */
+  bullets.forEach(bullet => {
+    enemies.forEach(enemy => {
+      if (enemy.dead) return;
+
+      const distance = Math.hypot(
+        bullet.x - enemy.x,
+        bullet.y - enemy.y
+      );
+
+      if (distance < enemy.radius + 5) {
+        enemy.hp -= bullet.damage;
+        bullet.y = -100;
+
+        if (enemy.hp <= 0) {
+          enemy.dead = true;
+          score += enemy.points;
+          earned += enemy.reward;
+          createParticles(enemy.x, enemy.y, 12);
+        }
+      }
+    });
+  });
+
+  bullets = bullets.filter(bullet => bullet.y > -50);
+  enemies = enemies.filter(enemy => !enemy.dead && enemy.y < H + 40);
+
+  /* Player collisions */
+  if (invincible <= 0) {
+    enemies.forEach(enemy => {
+      if (enemy.dead) return;
+
+      if (
+        Math.hypot(player.x - enemy.x, player.y - enemy.y)
+        < enemy.radius + 17
+      ) {
+        enemy.dead = true;
+        loseLife();
+      }
+    });
+  }
+
+  /* Collect crystals */
+  crystals.forEach(crystal => {
+    if (
+      Math.hypot(player.x - crystal.x, player.y - crystal.y)
+      < 25
+    ) {
+      crystal.collected = true;
+      earned += 25;
+      score += 50;
+      createParticles(crystal.x, crystal.y, 8);
+    }
+  });
+
+  crystals = crystals.filter(
+    crystal => !crystal.collected && crystal.y < H + 20
+  );
+
+  /* Particles */
+  particles.forEach(particle => {
+    particle.x += particle.vx * dt;
+    particle.y += particle.vy * dt;
+    particle.life -= dt;
+  });
+
+  particles = particles.filter(particle => particle.life > 0);
+
+  const newLevel = Math.floor(score / 500) + 1;
+
+  if (newLevel > level) {
+    level = newLevel;
+    invincible = 1.5;
+    createParticles(player.x, player.y, 20);
+  }
+
   updateHUD();
 }
 
+function spawnEnemy() {
+  const tough = Math.random() < Math.min(0.35, level * 0.035);
+
+  enemies.push({
+    x: 25 + Math.random() * (W - 50),
+    y: -30,
+    radius: tough ? 20 : 15,
+    hp: tough ? 2 + Math.floor(level / 3) : 1,
+    speed: (tough ? 95 : 125) + level * 7 + Math.random() * 35,
+    points: tough ? 150 : 75,
+    reward: tough ? 20 : 10,
+    phase: Math.random() * 6,
+    tough,
+    dead: false
+  });
+}
+
+function loseLife() {
+  if (invincible > 0) return;
+
+  lives--;
+  invincible = 1.5;
+  createParticles(player.x, player.y, 16);
+  updateHUD();
+
+  if (lives <= 0) {
+    endRun();
+  }
+}
+
+function createParticles(x, y, amount) {
+  for (let i = 0; i < amount; i++) {
+    const angle = Math.random() * Math.PI * 2;
+    const speed = 40 + Math.random() * 170;
+
+    particles.push({
+      x,
+      y,
+      vx: Math.cos(angle) * speed,
+      vy: Math.sin(angle) * speed,
+      life: 0.3 + Math.random() * 0.5
+    });
+  }
+}
+
+/* =========================
+   DRAWING
+   ========================= */
+
 function draw() {
-  ctx.fillStyle = "#070b20";
+  ctx.clearRect(0, 0, W, H);
+
+  /* Background */
+  const background = ctx.createLinearGradient(0, 0, 0, H);
+  background.addColorStop(0, "#080b20");
+  background.addColorStop(1, "#101b3c");
+  ctx.fillStyle = background;
   ctx.fillRect(0, 0, W, H);
 
-  for (let i = 0; i < 65; i++) {
-    const x = (i * 73) % W;
-    const y = (i * 137 + Date.now() * .025) % H;
-    ctx.fillStyle = "#52618b";
+  /* Stars */
+  for (let i = 0; i < 55; i++) {
+    const x = (i * 83) % W;
+    const y = (i * 137 + gameTime * (25 + i % 4 * 10)) % H;
+
+    ctx.fillStyle = "rgba(180,220,255,0.55)";
     ctx.fillRect(x, y, 2, 2);
   }
 
-  objects.forEach(o => {
+  /* Crystals */
+  crystals.forEach(crystal => {
+    ctx.save();
+    ctx.translate(crystal.x, crystal.y);
+    ctx.rotate(gameTime * 2);
+    ctx.fillStyle = "#48f5ff";
+    ctx.shadowColor = "#48f5ff";
+    ctx.shadowBlur = 15;
     ctx.beginPath();
-    ctx.fillStyle = o.crystal ? "#27e8ff" : "#ff416d";
-    ctx.arc(o.x, o.y, o.size, 0, Math.PI * 2);
+    ctx.moveTo(0, -10);
+    ctx.lineTo(8, 0);
+    ctx.lineTo(0, 10);
+    ctx.lineTo(-8, 0);
+    ctx.closePath();
     ctx.fill();
+    ctx.restore();
   });
 
-  bullets.forEach(b => {
-    ctx.fillStyle = "#5fffff";
-    ctx.fillRect(b.x - 3, b.y - 10, 6, 17);
+  /* Bullets */
+  bullets.forEach(bullet => {
+    ctx.fillStyle = "#54f6ff";
+    ctx.shadowColor = "#54f6ff";
+    ctx.shadowBlur = 12;
+    ctx.fillRect(bullet.x - 3, bullet.y - 10, 6, 17);
+  });
+  ctx.shadowBlur = 0;
+
+  /* Enemies */
+  enemies.forEach(enemy => {
+    ctx.save();
+    ctx.translate(enemy.x, enemy.y);
+
+    ctx.fillStyle = enemy.tough ? "#ff4a9a" : "#ff765c";
+    ctx.shadowColor = ctx.fillStyle;
+    ctx.shadowBlur = 14;
+
+    ctx.beginPath();
+    ctx.moveTo(0, enemy.radius);
+    ctx.lineTo(enemy.radius, -enemy.radius);
+    ctx.lineTo(0, -enemy.radius * 0.55);
+    ctx.lineTo(-enemy.radius, -enemy.radius);
+    ctx.closePath();
+    ctx.fill();
+
+    ctx.restore();
   });
 
-  particles.forEach(p => {
-    ctx.fillStyle = "#ffcc55";
-    ctx.fillRect(p.x, p.y, 4, 4);
+  /* Player ship */
+  if (invincible <= 0 || Math.floor(gameTime * 10) % 2 === 0) {
+    ctx.save();
+    ctx.translate(player.x, player.y);
+
+    ctx.fillStyle = "#55edff";
+    ctx.shadowColor = "#55edff";
+    ctx.shadowBlur = 18;
+
+    ctx.beginPath();
+    ctx.moveTo(0, -25);
+    ctx.lineTo(20, 20);
+    ctx.lineTo(0, 12);
+    ctx.lineTo(-20, 20);
+    ctx.closePath();
+    ctx.fill();
+
+    ctx.fillStyle = "#ffffff";
+    ctx.beginPath();
+    ctx.moveTo(0, -13);
+    ctx.lineTo(6, 8);
+    ctx.lineTo(-6, 8);
+    ctx.closePath();
+    ctx.fill();
+
+    ctx.restore();
+  }
+
+  /* Particles */
+  particles.forEach(particle => {
+    ctx.globalAlpha = Math.max(0, particle.life);
+    ctx.fillStyle = "#5ffaff";
+    ctx.fillRect(particle.x, particle.y, 4, 4);
   });
 
-  ctx.save();
-  ctx.translate(player.x, player.y);
-  ctx.fillStyle = "#55eaff";
-  ctx.beginPath();
-  ctx.moveTo(0, -25);
-  ctx.lineTo(19, 20);
-  ctx.lineTo(0, 12);
-  ctx.lineTo(-19, 20);
-  ctx.closePath();
-  ctx.fill();
-
-  ctx.fillStyle = "#ffffff";
-  ctx.fillRect(-4, -8, 8, 17);
-  ctx.restore();
+  ctx.globalAlpha = 1;
+  ctx.shadowBlur = 0;
 }
 
-function loop(timestamp) {
-  if (mode !== "playing") return;
+/* =========================
+   HUD
+   ========================= */
 
-  const dt = Math.min((timestamp - lastFrame) / 1000 || 0, .04);
-  lastFrame = timestamp;
+function updateHUD() {
+  if ($("score")) $("score").textContent = score.toLocaleString();
+  if ($("levelHud")) $("levelHud").textContent = level;
+  if ($("lives")) $("lives").textContent = lives;
+}
 
-  update(dt);
+/* =========================
+   UPGRADES
+   ========================= */
 
-  if (mode === "playing") {
-    draw();
-    animationId = requestAnimationFrame(loop);
+const upgradeInfo = [
+  {
+    id: "hull",
+    name: "Stronger Hull",
+    description: "Increases your ship's durability.",
+    base: 150,
+    max: 5
+  },
+  {
+    id: "engine",
+    name: "Engine Boost",
+    description: "Increases your movement speed.",
+    base: 125,
+    max: 5
+  },
+  {
+    id: "weapon",
+    name: "Weapon System",
+    description: "Increases your firing speed.",
+    base: 200,
+    max: 5
+  },
+  {
+    id: "extra",
+    name: "Extra Life",
+    description: "Start every run with an extra life.",
+    base: 300,
+    max: 3
+  }
+];
+
+function upgradeCost(upgrade) {
+  return upgrade.base * (save.upgrades[upgrade.id] + 1);
+}
+
+function renderUpgrades() {
+  const container = $("upgradeList");
+  if (!container) return;
+
+  container.innerHTML = "";
+
+  upgradeInfo.forEach(upgrade => {
+    const level = save.upgrades[upgrade.id];
+    const maxed = level >= upgrade.max;
+    const cost = upgradeCost(upgrade);
+
+    const card = document.createElement("div");
+    card.className = "upgrade-card";
+
+    const title = document.createElement("h3");
+    title.textContent = upgrade.name;
+
+    const description = document.createElement("p");
+    description.textContent = upgrade.description;
+
+    const levelText = document.createElement("p");
+    levelText.textContent = `Level ${level}/${upgrade.max}`;
+
+    const button = document.createElement("button");
+    button.className = "upgrade-button";
+    button.textContent = maxed ? "MAX LEVEL" : `UPGRADE · ${cost} CR`;
+    button.disabled = maxed || save.credits < cost;
+
+    button.addEventListener("click", () => {
+      if (maxed || save.credits < cost) return;
+
+      save.credits -= cost;
+      save.upgrades[upgrade.id]++;
+      saveGame();
+      updateAllUI();
+    });
+
+    card.append(title, description, levelText, button);
+    container.appendChild(card);
+  });
+}
+
+/* =========================
+   HANGAR & INVENTORY
+   ========================= */
+
+let inventoryFilter = "all";
+
+function renderHangar() {
+  const weapon = getItem(save.equipped.weapon);
+  const module = getItem(save.equipped.module);
+
+  if ($("shipName")) {
+    $("shipName").textContent = "NEON FIGHTER";
+  }
+
+  const weaponSlots = $("weaponSlots");
+  const moduleSlots = $("moduleSlots");
+
+  if (weaponSlots) {
+    weaponSlots.innerHTML = `
+      <div class="equipment-slot">
+        <strong>WEAPON</strong>
+        <div>${weapon.icon} ${weapon.name}</div>
+        <small class="rarity-${weapon.rarity}">${rarityNames[weapon.rarity]}</small>
+      </div>
+    `;
+  }
+
+  if (moduleSlots) {
+    moduleSlots.innerHTML = `
+      <div class="equipment-slot">
+        <strong>MODULE</strong>
+        <div>${module.icon} ${module.name}</div>
+        <small class="rarity-${module.rarity}">${rarityNames[module.rarity]}</small>
+      </div>
+    `;
+  }
+
+  renderInventory();
+}
+
+function renderInventory() {
+  const container = $("inventory");
+  if (!container) return;
+
+  container.innerHTML = "";
+
+  const ownedItems = [...new Set(save.inventory)];
+
+  ownedItems.forEach(id => {
+    const item = getItem(id);
+
+    if (inventoryFilter !== "all" && item.type !== inventoryFilter) {
+      return;
+    }
+
+    const equipped =
+      save.equipped[item.type] === item.id;
+
+    const card = document.createElement("div");
+    card.className = "item-card";
+
+    const icon = document.createElement("div");
+    icon.className = "item-icon";
+    icon.textContent = item.icon;
+
+    const name = document.createElement("strong");
+    name.textContent = item.name;
+
+    const rarity = document.createElement("p");
+    rarity.className = `rarity-${item.rarity}`;
+    rarity.textContent = rarityNames[item.rarity];
+
+    const description = document.createElement("small");
+    description.textContent = item.description;
+
+    const button = document.createElement("button");
+    button.textContent = equipped ? "EQUIPPED" : "EQUIP";
+    button.disabled = equipped;
+
+    button.addEventListener("click", () => {
+      save.equipped[item.type] = item.id;
+      saveGame();
+      updateAllUI();
+    });
+
+    card.append(icon, name, rarity, description, button);
+    container.appendChild(card);
+  });
+}
+
+document.querySelectorAll(".filter").forEach(button => {
+  button.addEventListener("click", () => {
+    inventoryFilter = button.dataset.filter || "all";
+
+    document.querySelectorAll(".filter").forEach(filter => {
+      filter.classList.toggle("active", filter === button);
+    });
+
+    renderInventory();
+  });
+});
+
+/* =========================
+   PACKS
+   ========================= */
+
+function randomItem(elite = false) {
+  const roll = Math.random() * 100;
+
+  let rarity;
+
+  if (elite) {
+    if (roll < 30) rarity = "common";
+    else if (roll < 55) rarity = "uncommon";
+    else if (roll < 80) rarity = "rare";
+    else if (roll < 95) rarity = "epic";
+    else rarity = "legendary";
+  } else {
+    if (roll < 60) rarity = "common";
+    else if (roll < 85) rarity = "uncommon";
+    else if (roll < 95) rarity = "rare";
+    else if (roll < 99) rarity = "epic";
+    else rarity = "legendary";
+  }
+
+  const possible = Object.values(items).filter(
+    item => item.rarity === rarity
+  );
+
+  return possible[Math.floor(Math.random() * possible.length)];
+}
+
+function openPack(elite = false) {
+  const item = randomItem(elite);
+  const alreadyOwned = save.inventory.includes(item.id);
+
+  if (!alreadyOwned) {
+    save.inventory.push(item.id);
+  } else {
+    save.credits += item.rarity === "legendary" ? 150 : 50;
+  }
+
+  saveGame();
+
+  if ($("packItemIcon")) {
+    $("packItemIcon").textContent = item.icon;
+  }
+
+  if ($("packItemName")) {
+    $("packItemName").textContent = item.name;
+  }
+
+  if ($("packRarity")) {
+    $("packRarity").textContent =
+      alreadyOwned
+        ? `${rarityNames[item.rarity]} · DUPLICATE BONUS`
+        : rarityNames[item.rarity];
+
+    $("packRarity").className = `rarity-${item.rarity}`;
+  }
+
+  if ($("packItemDesc")) {
+    $("packItemDesc").textContent = alreadyOwned
+      ? `${item.description} You already owned this item, so you received bonus credits.`
+      : item.description;
+  }
+
+  if ($("packResult")) {
+    $("packResult").classList.remove("hidden");
+  }
+
+  updateAllUI();
+}
+
+function todayString() {
+  const date = new Date();
+  return [
+    date.getFullYear(),
+    String(date.getMonth() + 1).padStart(2, "0"),
+    String(date.getDate()).padStart(2, "0")
+  ].join("-");
+}
+
+function updateDailyButton() {
+  const button = $("dailyBtn");
+  const status = $("dailyStatus");
+  if (!button) return;
+
+  const claimed = save.dailyClaim === todayString();
+
+  button.disabled = claimed;
+  button.textContent = claimed ? "CLAIMED TODAY" : "CLAIM DAILY PACK";
+
+  if (status) {
+    status.textContent = claimed
+      ? "Come back tomorrow for another free pack."
+      : "Your free daily pack is ready!";
   }
 }
 
-const keys = { left: false, right: false };
+if ($("dailyBtn")) {
+  $("dailyBtn").addEventListener("click", () => {
+    if (save.dailyClaim === todayString()) return;
 
-document.addEventListener("keydown", e => {
-  if (e.key === "ArrowLeft" || e.key === "a") keys.left = true;
-  if (e.key === "ArrowRight" || e.key === "d") keys.right = true;
-  if (e.key === "Escape") pauseGame();
-});
-
-document.addEventListener("keyup", e => {
-  if (e.key === "ArrowLeft" || e.key === "a") keys.left = false;
-  if (e.key === "ArrowRight" || e.key === "d") keys.right = false;
-});
-
-canvas.addEventListener("pointerdown", e => {
-  pointerDown = true;
-  canvas.setPointerCapture(e.pointerId);
-  movePlayer(e);
-});
-
-canvas.addEventListener("pointermove", e => {
-  if (pointerDown && mode === "playing") movePlayer(e);
-});
-
-canvas.addEventListener("pointerup", () => pointerDown = false);
-canvas.addEventListener("pointercancel", () => pointerDown = false);
-
-function movePlayer(e) {
-  const rect = canvas.getBoundingClientRect();
-  player.x = (e.clientX - rect.left) / rect.width * W;
-  player.x = Math.max(20, Math.min(W - 20, player.x));
-}
-
-function on(id, event, fn) {
-  const el = $(id);
-  if (el) el.addEventListener(event, fn);
-}
-
-document.querySelectorAll("[data-open]").forEach(button => {
-  button.addEventListener("click", () => {
-    if (mode === "playing" || mode === "paused") return;
-    showScreen(button.dataset.open);
+    save.dailyClaim = todayString();
+    openPack(false);
+    updateDailyButton();
   });
-});
+}
 
-on("playBtn", "click", () => showScreen("tutorial"));
-on("startBtn", "click", startRun);
-on("againBtn", "click", startRun);
-on("pauseBtn", "click", pauseGame);
-on("resumeBtn", "click", resumeGame);
-on("quitBtn", "click", () => {
-  mode = "menu";
-  if ($("overlay")) $("overlay").classList.remove("active");
-  showScreen("home");
-});
-on("dailyBtn", "click", claimDaily);
-on("buyPackBtn", "click", () => openPack(false));
-on("packDoneBtn", "click", () => showScreen("packs"));
+if ($("buyPackBtn")) {
+  $("buyPackBtn").addEventListener("click", () => {
+    const cost = 500;
 
-updateBank();
+    if (save.credits < cost) {
+      if ($("packItemDesc")) {
+        $("packItemDesc").textContent =
+          "Not enough credits. You need 500 CR.";
+      }
+      if ($("packResult")) {
+        $("packResult").classList.remove("hidden");
+      }
+      return;
+    }
+
+    save.credits -= cost;
+    openPack(true);
+  });
+}
+
+if ($("packDoneBtn")) {
+  $("packDoneBtn").addEventListener("click", () => {
+    if ($("packResult")) {
+      $("packResult").classList.add("hidden");
+    }
+    updateAllUI();
+  });
+}
+
+/* =========================
+   MENU BUTTONS
+   ========================= */
+
+if ($("playBtn")) {
+  $("playBtn").addEventListener("click", () => {
+    showScreen("tutorial");
+  });
+}
+
+if ($("startBtn")) {
+  $("startBtn").addEventListener("click", () => {
+    save.tutorialSeen = true;
+    saveGame();
+    startRun();
+  });
+}
+
+if ($("againBtn")) {
+  $("againBtn").addEventListener("click", startRun);
+}
+
+if ($("pauseBtn")) {
+  $("pauseBtn").addEventListener("click", pauseGame);
+}
+
+if ($("resumeBtn")) {
+  $("resumeBtn").addEventListener("click", resumeGame);
+}
+
+if ($("quitBtn")) {
+  $("quitBtn").addEventListener("click", () => {
+    gameState = "menu";
+    cancelAnimationFrame(animationId);
+    $("overlay").classList.remove("active");
+    showScreen("home");
+  });
+}
+
+/* =========================
+   UPDATE MENU INFORMATION
+   ========================= */
+
+function updateAllUI() {
+  if ($("bank")) {
+    $("bank").textContent = save.credits.toLocaleString();
+  }
+
+  if ($("bestHome")) {
+    $("bestHome").textContent = save.best.toLocaleString();
+  }
+
+  if ($("runsHome")) {
+    $("runsHome").textContent = save.runs;
+  }
+
+  if ($("shipLevelHome")) {
+    $("shipLevelHome").textContent =
+      1 + save.upgrades.hull +
+      save.upgrades.engine +
+      save.upgrades.weapon;
+  }
+
+  renderHangar();
+  renderUpgrades();
+  updateDailyButton();
+  updateHUD();
+}
+
+/* =========================
+   INITIALIZE
+   ========================= */
+
+updateAllUI();
 showScreen("home");
 
+console.log("NEON DRIFT loaded successfully.");
 })();
