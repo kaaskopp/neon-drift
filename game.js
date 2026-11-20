@@ -8,10 +8,16 @@
 
   const $ = id => document.getElementById(id);
   const canvas = $("game");
-  const ctx = canvas.getContext("2d");
 
+  if (!canvas) {
+    console.error("NEON DRIFT: Canvas with id='game' was not found.");
+    return;
+  }
+
+  const ctx = canvas.getContext("2d");
   const W = 420;
   const H = 700;
+
   canvas.width = W;
   canvas.height = H;
 
@@ -41,8 +47,8 @@
       const current = JSON.parse(localStorage.getItem(SAVE_KEY));
       if (current) return current;
 
-      // Keep credits and progress from the previous game version.
       const old = JSON.parse(localStorage.getItem(OLD_KEY));
+
       if (old) {
         return {
           ...defaults,
@@ -65,12 +71,18 @@
   const save = loadSave();
 
   save.upgrades = { ...defaults.upgrades, ...(save.upgrades || {}) };
-  save.inventory = Array.isArray(save.inventory) ? save.inventory : ["laser", "basic_hull"];
+  save.inventory = Array.isArray(save.inventory)
+    ? save.inventory
+    : ["laser", "basic_hull"];
   save.equipped = { ...defaults.equipped, ...(save.equipped || {}) };
   save.lastDailyClaim = save.lastDailyClaim || "";
 
   function saveGame() {
-    localStorage.setItem(SAVE_KEY, JSON.stringify(save));
+    try {
+      localStorage.setItem(SAVE_KEY, JSON.stringify(save));
+    } catch (error) {
+      console.warn("Could not save game progress.", error);
+    }
     updateMenu();
   }
 
@@ -134,7 +146,6 @@
       color: "#ffc45c",
       price: 0
     },
-
     basic_hull: {
       name: "Standard Hull",
       type: "module",
@@ -229,6 +240,7 @@
     if (name === "upgrades") renderUpgrades();
   }
 
+  // Updated navigation: all data-open buttons are connected.
   document.querySelectorAll("[data-open]").forEach(button => {
     button.addEventListener("click", () => {
       if (state === "playing" || state === "paused") return;
@@ -236,9 +248,14 @@
     });
   });
 
-  $("playBtn").addEventListener("click", () => showScreen("tutorial"));
-  $("startBtn").addEventListener("click", startRun);
-  $("againBtn").addEventListener("click", startRun);
+  function on(id, event, callback) {
+    const element = $(id);
+    if (element) element.addEventListener(event, callback);
+  }
+
+  on("playBtn", "click", () => showScreen("tutorial"));
+  on("startBtn", "click", startRun);
+  on("againBtn", "click", startRun);
 
   // ==========================================
   // MENU HUD
@@ -248,6 +265,7 @@
     if ($("bank")) $("bank").textContent = save.credits;
     if ($("bestHome")) $("bestHome").textContent = save.best;
     if ($("runsHome")) $("runsHome").textContent = save.runs;
+
     if ($("shipLevelHome")) {
       $("shipLevelHome").textContent =
         1 + Object.values(save.upgrades).reduce((a, b) => a + b, 0);
@@ -264,31 +282,39 @@
     const weapon = getItem(save.equipped.weapon);
     const module = getItem(save.equipped.module);
 
-    $("shipName").textContent = weapon.name.toUpperCase();
+    if ($("shipName")) {
+      $("shipName").textContent = weapon.name.toUpperCase();
+    }
 
-    $("weaponSlots").innerHTML = `
-      <div class="equipment-slot">
-        <div>
-          <strong>⚡ Weapon</strong>
-          <small class="${rarityClass(weapon.rarity)}">${weapon.name} · ${weapon.rarity}</small>
-        </div>
-        <button data-jump="weapon">CHANGE</button>
-      </div>`;
+    if ($("weaponSlots")) {
+      $("weaponSlots").innerHTML = `
+        <div class="equipment-slot">
+          <div>
+            <strong>⚡ Weapon</strong>
+            <small class="${rarityClass(weapon.rarity)}">${weapon.name} · ${weapon.rarity}</small>
+          </div>
+          <button data-jump="weapon">CHANGE</button>
+        </div>`;
+    }
 
-    $("moduleSlots").innerHTML = `
-      <div class="equipment-slot">
-        <div>
-          <strong>◆ Module</strong>
-          <small class="${rarityClass(module.rarity)}">${module.name} · ${module.rarity}</small>
-        </div>
-        <button data-jump="module">CHANGE</button>
-      </div>`;
+    if ($("moduleSlots")) {
+      $("moduleSlots").innerHTML = `
+        <div class="equipment-slot">
+          <div>
+            <strong>◆ Module</strong>
+            <small class="${rarityClass(module.rarity)}">${module.name} · ${module.rarity}</small>
+          </div>
+          <button data-jump="module">CHANGE</button>
+        </div>`;
+    }
 
     document.querySelectorAll("[data-jump]").forEach(button => {
       button.addEventListener("click", () => {
         inventoryFilter = button.dataset.jump;
         renderInventory();
-        document.querySelector(".subheading")?.scrollIntoView({ behavior: "smooth" });
+        document.querySelector(".subheading")?.scrollIntoView({
+          behavior: "smooth"
+        });
       });
     });
 
@@ -297,18 +323,27 @@
 
   function renderInventory() {
     const container = $("inventory");
+    if (!container) return;
+
     container.innerHTML = "";
 
     const ownedItems = save.inventory
       .map(id => ({ id, item: getItem(id) }))
-      .filter(entry => inventoryFilter === "all" || entry.item.type === inventoryFilter);
+      .filter(entry =>
+        inventoryFilter === "all" ||
+        entry.item.type === inventoryFilter
+      );
 
     document.querySelectorAll(".filter").forEach(button => {
-      button.classList.toggle("active", button.dataset.filter === inventoryFilter);
+      button.classList.toggle(
+        "active",
+        button.dataset.filter === inventoryFilter
+      );
     });
 
     if (!ownedItems.length) {
-      container.innerHTML = '<p class="muted">No equipment in this category yet. Open some packs!</p>';
+      container.innerHTML =
+        '<p class="muted">No equipment in this category yet. Open some packs!</p>';
       return;
     }
 
@@ -322,7 +357,9 @@
         <strong>${item.name}</strong>
         <small class="${rarityClass(item.rarity)}">${item.rarity} ${item.type}</small>
         <small>${item.description}</small>
-        <button ${equipped ? "disabled" : ""}>${equipped ? "EQUIPPED" : "EQUIP"}</button>
+        <button ${equipped ? "disabled" : ""}>
+          ${equipped ? "EQUIPPED" : "EQUIP"}
+        </button>
       `;
 
       card.querySelector("button").addEventListener("click", () => {
@@ -356,11 +393,19 @@
   }
 
   function updateDailyButton() {
+    const dailyBtn = $("dailyBtn");
+    const dailyStatus = $("dailyStatus");
+
+    if (!dailyBtn || !dailyStatus) return;
+
     const claimed = save.lastDailyClaim === localDateKey();
 
-    $("dailyBtn").disabled = claimed;
-    $("dailyBtn").textContent = claimed ? "ALREADY CLAIMED" : "CLAIM FREE PACK";
-    $("dailyStatus").textContent = claimed
+    dailyBtn.disabled = claimed;
+    dailyBtn.textContent = claimed
+      ? "ALREADY CLAIMED"
+      : "CLAIM FREE PACK";
+
+    dailyStatus.textContent = claimed
       ? "Your next free pack is available tomorrow."
       : "Your free pack is ready!";
   }
@@ -386,10 +431,9 @@
   function openPack(elite) {
     const rarity = chooseRarity(elite);
 
-    let pool = Object.entries(items)
+    const pool = Object.entries(items)
       .filter(([id, item]) => item.rarity === rarity);
 
-    // Prefer an item the player does not already own.
     let newPool = pool.filter(([id]) => !owns(id));
     let duplicate = false;
 
@@ -398,7 +442,10 @@
       duplicate = true;
     }
 
-    const [id, item] = newPool[Math.floor(Math.random() * newPool.length)];
+    if (!newPool.length) return;
+
+    const [id, item] =
+      newPool[Math.floor(Math.random() * newPool.length)];
 
     if (!duplicate) {
       save.inventory.push(id);
@@ -416,21 +463,35 @@
 
     saveGame();
 
-    $("packResult").classList.remove("hidden");
-    $("packItemIcon").textContent = item.icon;
-    $("packItemIcon").style.color = rarityColor(rarity);
-    $("packItemName").textContent = duplicate ? `${item.name} · DUPLICATE` : item.name;
-    $("packRarity").textContent = rarity.toUpperCase();
-    $("packRarity").className = "rarity-label " + rarityClass(rarity);
-    $("packItemDesc").textContent = duplicate
-      ? `${item.description} You already own this item, so you received bonus credits instead.`
-      : item.description;
+    if ($("packResult")) $("packResult").classList.remove("hidden");
 
-    $("dailyBtn").disabled = true;
-    $("buyPackBtn").disabled = true;
+    if ($("packItemIcon")) {
+      $("packItemIcon").textContent = item.icon;
+      $("packItemIcon").style.color = rarityColor(rarity);
+    }
+
+    if ($("packItemName")) {
+      $("packItemName").textContent =
+        duplicate ? `${item.name} · DUPLICATE` : item.name;
+    }
+
+    if ($("packRarity")) {
+      $("packRarity").textContent = rarity.toUpperCase();
+      $("packRarity").className =
+        "rarity-label " + rarityClass(rarity);
+    }
+
+    if ($("packItemDesc")) {
+      $("packItemDesc").textContent = duplicate
+        ? `${item.description} You already own this item, so you received bonus credits instead.`
+        : item.description;
+    }
+
+    if ($("dailyBtn")) $("dailyBtn").disabled = true;
+    if ($("buyPackBtn")) $("buyPackBtn").disabled = true;
   }
 
-  $("dailyBtn").addEventListener("click", () => {
+  on("dailyBtn", "click", () => {
     if (save.lastDailyClaim === localDateKey()) return;
 
     save.lastDailyClaim = localDateKey();
@@ -439,9 +500,12 @@
     updateDailyButton();
   });
 
-  $("buyPackBtn").addEventListener("click", () => {
+  on("buyPackBtn", "click", () => {
     if (save.credits < 500) {
-      $("dailyStatus").textContent = "Not enough credits. Play a mission to earn more!";
+      if ($("dailyStatus")) {
+        $("dailyStatus").textContent =
+          "Not enough credits. Play a mission to earn more!";
+      }
       return;
     }
 
@@ -450,9 +514,9 @@
     openPack(true);
   });
 
-  $("packDoneBtn").addEventListener("click", () => {
-    $("packResult").classList.add("hidden");
-    $("buyPackBtn").disabled = false;
+  on("packDoneBtn", "click", () => {
+    if ($("packResult")) $("packResult").classList.add("hidden");
+    if ($("buyPackBtn")) $("buyPackBtn").disabled = false;
     updateDailyButton();
   });
 
@@ -753,17 +817,14 @@
         bullet(x - 11, y, -12, 1);
         bullet(x + 11, y, 12, 1);
         break;
-
       case "plasma":
         bullet(x, y, 0, 3);
         break;
-
       case "burst":
         bullet(x - 12, y, -55, 2);
         bullet(x, y - 4, 0, 2);
         bullet(x + 12, y, 55, 2);
         break;
-
       case "nova":
         bullet(x, y, 0, 3);
         bullet(x - 8, y, -65, 3);
@@ -771,7 +832,6 @@
         bullet(x - 14, y, -120, 2);
         bullet(x + 14, y, 120, 2);
         break;
-
       default:
         bullet(x, y, 0, 1);
     }
@@ -931,7 +991,9 @@
       b.y -= b.speed * dt;
     });
 
-    bullets = bullets.filter(b => b.y > -30 && b.x > -30 && b.x < W + 30);
+    bullets = bullets.filter(b =>
+      b.y > -30 && b.x > -30 && b.x < W + 30
+    );
 
     for (let i = objects.length - 1; i >= 0; i--) {
       const obj = objects[i];
@@ -1001,10 +1063,7 @@
       crystalTimer = 1.4 + Math.random() * 1.3;
     }
 
-    // Automatic weapon firing.
     fireWeapon();
-
-    // Move bullets.
     updateBullets(dt);
 
     const module = getItem(save.equipped.module);
@@ -1103,7 +1162,6 @@
     level = 1;
 
     const module = getItem(save.equipped.module);
-
     lives = 3 + save.upgrades.extra + (module.health || 0);
 
     objects = [];
@@ -1146,9 +1204,9 @@
 
     saveGame();
 
-    $("finalScore").textContent = finalScore;
-    $("earned").textContent = earned;
-    $("bestResult").textContent = save.best;
+    if ($("finalScore")) $("finalScore").textContent = finalScore;
+    if ($("earned")) $("earned").textContent = earned;
+    if ($("bestResult")) $("bestResult").textContent = save.best;
 
     showScreen("result");
   }
@@ -1166,16 +1224,20 @@
 
     cancelAnimationFrame(animationId);
 
-    $("overlay").classList.add("active");
-    $("overlayTitle").textContent = "PAUSED";
-    $("overlayText").textContent = "Take a break, pilot.";
-    $("overlayTag").textContent = "MISSION PAUSED";
+    if ($("overlay")) $("overlay").classList.add("active");
+    if ($("overlayTitle")) $("overlayTitle").textContent = "PAUSED";
+    if ($("overlayText")) {
+      $("overlayText").textContent = "Take a break, pilot.";
+    }
+    if ($("overlayTag")) {
+      $("overlayTag").textContent = "MISSION PAUSED";
+    }
   }
 
   function resumeGame() {
     if (state !== "paused") return;
 
-    $("overlay").classList.remove("active");
+    if ($("overlay")) $("overlay").classList.remove("active");
 
     state = "playing";
     lastFrame = performance.now();
@@ -1184,13 +1246,13 @@
 
   function quitGame() {
     if (state !== "paused") return;
-    $("overlay").classList.remove("active");
+    if ($("overlay")) $("overlay").classList.remove("active");
     endRun();
   }
 
-  $("pauseBtn").addEventListener("click", pauseGame);
-  $("resumeBtn").addEventListener("click", resumeGame);
-  $("quitBtn").addEventListener("click", quitGame);
+  on("pauseBtn", "click", pauseGame);
+  on("resumeBtn", "click", resumeGame);
+  on("quitBtn", "click", quitGame);
 
   // ==========================================
   // DIRECT TOUCH CONTROL
@@ -1203,8 +1265,6 @@
 
   function moveShip(event) {
     const x = pointerPosition(event);
-
-    // Direct 1:1 movement. No speed limit or acceleration.
     player.x = Math.max(25, Math.min(W - 25, x));
   }
 
@@ -1250,11 +1310,17 @@
   window.addEventListener("keydown", event => {
     if (state !== "playing") return;
 
-    if (event.key === "ArrowLeft" || event.key.toLowerCase() === "a") {
+    if (
+      event.key === "ArrowLeft" ||
+      event.key.toLowerCase() === "a"
+    ) {
       player.x = Math.max(25, player.x - 28);
     }
 
-    if (event.key === "ArrowRight" || event.key.toLowerCase() === "d") {
+    if (
+      event.key === "ArrowRight" ||
+      event.key.toLowerCase() === "d"
+    ) {
       player.x = Math.min(W - 25, player.x + 28);
     }
 
